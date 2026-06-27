@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+env/
+build/
+dist/
+*.spec
+*.log
+*.sqlite
+*.sqlite-*
+*.json
+!package.json
+!tsconfig.json
+codex-performance-report-*.json

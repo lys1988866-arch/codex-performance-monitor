@@ -1,0 +1,16 @@
+[project]
+name = "codex-performance-monitor"
+version = "0.1.0"
+description = "Local desktop performance monitor for OpenAI Codex Desktop on Windows."
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+authors = [
+  { name = "Codex Performance Monitor contributors" }
+]
+keywords = ["codex", "monitor", "windows", "performance", "sqlite", "tkinter"]
+dependencies = []
+
+[tool.pyright]
+pythonVersion = "3.11"
+typeCheckingMode = "basic"
