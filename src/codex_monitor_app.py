@@ -28,7 +28,7 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.1.1"
+APP_VERSION = "0.1.2"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
 )
@@ -65,11 +65,21 @@ def normalize_json(value: Any) -> Any:
 
 
 def run_powershell_json(script: str, timeout: int = 8) -> Any:
+    startupinfo = None
+    creationflags = 0
+    if os.name == "nt":
+        startupinfo = subprocess.STARTUPINFO()
+        startupinfo.dwFlags |= subprocess.STARTF_USESHOWWINDOW
+        startupinfo.wShowWindow = subprocess.SW_HIDE
+        creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+
     command = [
         "powershell",
         "-NoProfile",
         "-ExecutionPolicy",
         "Bypass",
+        "-WindowStyle",
+        "Hidden",
         "-Command",
         script,
     ]
@@ -80,6 +90,8 @@ def run_powershell_json(script: str, timeout: int = 8) -> Any:
         timeout=timeout,
         encoding="utf-8",
         errors="replace",
+        startupinfo=startupinfo,
+        creationflags=creationflags,
     )
     if completed.returncode != 0:
         raise RuntimeError(completed.stderr.strip() or completed.stdout.strip())
