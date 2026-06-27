@@ -51,6 +51,12 @@ CLI snapshot:
 python .\src\codex_monitor_app.py --once
 ```
 
+Compact CLI summary:
+
+```powershell
+python .\src\codex_monitor_app.py --summary
+```
+
 Install TRACE/DEBUG log guard:
 
 ```powershell
@@ -63,18 +69,28 @@ Checkpoint/truncate Codex logs WAL:
 python .\src\codex_monitor_app.py --checkpoint
 ```
 
+## Validate
+
+Run the same local smoke checks used by CI:
+
+```powershell
+.\scripts\validate.ps1
+```
+
+This checks Python syntax, CLI help, compact JSON summary output, and a Tkinter startup smoke test.
+
 ## Build EXE
 
-Optional:
+Build a double-clickable Windows executable:
 
 ```powershell
 .\scripts\build-exe.ps1
 ```
 
-This creates a PyInstaller build if `pyinstaller` is available. If not, install it in your own Python environment first:
+The script creates an isolated `.venv-build` environment, installs PyInstaller there, and writes:
 
 ```powershell
-python -m pip install pyinstaller
+.\dist\CodexPerformanceMonitor\CodexPerformanceMonitor.exe
 ```
 
 ## Safety
@@ -84,20 +100,13 @@ The monitor is read-only by default. The two manual action buttons modify only t
 - `Checkpoint Logs WAL`: runs `PRAGMA wal_checkpoint(TRUNCATE)`.
 - `Install TRACE/DEBUG Guard`: creates a SQLite trigger that ignores new `TRACE` and `DEBUG` rows while keeping `INFO`, `WARN`, and `ERROR`.
 
-It does not kill processes or modify Codex projects.
+It does not kill processes, install Codex, reinstall Codex, or modify Codex projects.
 
-## GitHub
+## Repository
 
-Create a new GitHub repository, then from this folder:
+Published at:
 
-```powershell
-git init
-git add .
-git commit -m "Initial Codex performance monitor"
-git branch -M main
-git remote add origin https://github.com/<your-name>/codex-performance-monitor.git
-git push -u origin main
-```
+https://github.com/lys1988866-arch/codex-performance-monitor
 
 ## License
 

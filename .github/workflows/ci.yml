@@ -16,3 +16,24 @@ jobs:
         run: python -m py_compile src/codex_monitor_app.py
       - name: CLI help
         run: python src/codex_monitor_app.py --help
+      - name: Compact summary smoke test
+        run: python src/codex_monitor_app.py --summary
+      - name: Project validation script
+        shell: pwsh
+        run: ./scripts/validate.ps1
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build Windows executable
+        shell: pwsh
+        run: ./scripts/build-exe.ps1
+      - name: Upload executable artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CodexPerformanceMonitor-windows
+          path: dist/CodexPerformanceMonitor

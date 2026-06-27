@@ -28,7 +28,7 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.1.0"
+APP_VERSION = "0.1.1"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
 )
@@ -406,6 +406,50 @@ def collect_snapshot() -> dict[str, Any]:
     return snapshot
 
 
+def summarize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
+    log_health = snapshot["log_health"]
+    config = snapshot["config"]
+    risk = snapshot["risk"]
+    totals = risk["totals"]
+    memory = snapshot["system_memory"]
+    return {
+        "app": snapshot["app"],
+        "collected_at": snapshot["collected_at"],
+        "risk": {
+            "level": risk["level"],
+            "score": risk["score"],
+            "reasons": risk["reasons"],
+        },
+        "processes": {
+            "total": len(snapshot["processes"]),
+            "codex": totals["codex_processes"],
+            "runtime": totals["runtime_processes"],
+            "browser": totals["browser_processes"],
+            "codex_memory": totals["codex_memory"],
+            "runtime_memory": totals["runtime_memory"],
+        },
+        "system_memory": {
+            "used_percent": memory.get("used_percent"),
+            "free_physical": memory.get("free_physical"),
+            "total_physical": memory.get("total_physical"),
+        },
+        "logs": {
+            "db_size": log_health.get("db_size"),
+            "wal_size": log_health.get("wal_size"),
+            "rows": log_health.get("count"),
+            "max_id": log_health.get("max_id"),
+            "triggers": log_health.get("triggers"),
+        },
+        "config": {
+            "model": config.get("model"),
+            "reasoning_effort": config.get("reasoning_effort"),
+            "mcp_count": config.get("mcp_count"),
+            "enabled_plugins": len(config.get("enabled_plugins") or []),
+        },
+        "recent_threads": len(snapshot.get("recent_threads") or []),
+    }
+
+
 @dataclass
 class Columns:
     name: str
@@ -689,6 +733,7 @@ class CodexMonitorApp:
 def main() -> int:
     parser = argparse.ArgumentParser(description=APP_NAME)
     parser.add_argument("--once", action="store_true", help="Collect one JSON snapshot and print it.")
+    parser.add_argument("--summary", action="store_true", help="Collect one compact JSON summary and print it.")
     parser.add_argument("--checkpoint", action="store_true", help="Checkpoint/truncate logs_2.sqlite WAL and exit.")
     parser.add_argument("--install-guard", action="store_true", help="Install TRACE/DEBUG log guard and exit.")
     args = parser.parse_args()
@@ -701,6 +746,9 @@ def main() -> int:
         return 0
     if args.once:
         print(json.dumps(collect_snapshot(), ensure_ascii=False, indent=2))
+        return 0
+    if args.summary:
+        print(json.dumps(summarize_snapshot(collect_snapshot()), ensure_ascii=False, indent=2))
         return 0
     if tk is None or ttk is None:
         print("Tkinter is not available. Try --once for CLI mode.", file=sys.stderr)

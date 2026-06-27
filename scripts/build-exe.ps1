@@ -7,12 +7,27 @@ if (-not $python) {
   throw "Python was not found on PATH."
 }
 
-& $python.Source -m PyInstaller --version *> $null
-if ($LASTEXITCODE -ne 0) {
-  throw "PyInstaller is not installed. Run: python -m pip install pyinstaller"
+$venv = Join-Path $root ".venv-build"
+$venvPython = Join-Path $venv "Scripts\python.exe"
+
+if (-not (Test-Path $venvPython)) {
+  & $python.Source -m venv $venv
+  if ($LASTEXITCODE -ne 0) {
+    throw "Failed to create build virtual environment."
+  }
 }
 
-& $python.Source -m PyInstaller `
+& $venvPython -m pip install --upgrade pip
+if ($LASTEXITCODE -ne 0) {
+  throw "Failed to upgrade pip in build virtual environment."
+}
+
+& $venvPython -m pip install "pyinstaller>=6,<7"
+if ($LASTEXITCODE -ne 0) {
+  throw "Failed to install PyInstaller in build virtual environment."
+}
+
+& $venvPython -m PyInstaller `
   --noconfirm `
   --windowed `
   --name CodexPerformanceMonitor `
