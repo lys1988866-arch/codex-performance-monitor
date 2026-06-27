@@ -34,6 +34,29 @@ try {
     throw "Tkinter smoke test failed."
   }
 
+  $languageSmoke = @'
+import sys
+from pathlib import Path
+sys.path.insert(0, str(Path("src").resolve()))
+import tkinter as tk
+import codex_monitor_app as app
+
+root = tk.Tk()
+root.withdraw()
+ui = app.CodexMonitorApp(root)
+for code, label in app.SUPPORTED_LANGUAGES.items():
+    ui.language.set(label)
+    ui._apply_language()
+    if not ui.refresh_button.cget("text") or not ui.notebook.tab(0, "text"):
+        raise RuntimeError(f"Language {code} rendered empty UI text")
+root.destroy()
+print("language_smoke_ok")
+'@
+  $languageSmoke | & $python.Source -
+  if ($LASTEXITCODE -ne 0) {
+    throw "Language switch smoke test failed."
+  }
+
   Write-Host "Validation passed"
   Write-Host ("Risk: {0} ({1}/100)" -f $summary.risk.level, $summary.risk.score)
   Write-Host ("Processes: {0}; recent threads: {1}" -f $summary.processes.total, $summary.recent_threads)

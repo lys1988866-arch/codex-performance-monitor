@@ -4,6 +4,18 @@ Local desktop monitor for OpenAI Codex Desktop on Windows.
 
 It works like a focused task manager for Codex: it watches Codex processes, Node/MCP runtimes, browser/WebView helpers, system memory, Codex SQLite log health, model configuration, enabled plugins, MCP server count, and recent local Codex threads.
 
+## Languages
+
+- English: this page
+- [简体中文](docs/README.zh-CN.md)
+- [日本語](docs/README.ja.md)
+- [한국어](docs/README.ko.md)
+- [Español](docs/README.es.md)
+- [Français](docs/README.fr.md)
+- [Deutsch](docs/README.de.md)
+
+The desktop app includes an in-app language switcher for the same languages.
+
 ## Why
 
 Codex Desktop can become unstable when several heavy tasks run at the same time, especially with high reasoning settings, browser automation, Vite/Node dev servers, image generation, or large SQLite log files. This tool makes that pressure visible.

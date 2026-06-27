@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import locale
 import os
 import queue
 import sqlite3
@@ -28,14 +29,632 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.1.2"
+APP_VERSION = "0.2.0"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
+)
+SUPPORTED_LANGUAGES = {
+    "en": "English",
+    "zh-CN": "简体中文",
+    "ja": "日本語",
+    "ko": "한국어",
+    "es": "Español",
+    "fr": "Français",
+    "de": "Deutsch",
+}
+LANGUAGE_CODES_BY_LABEL = {label: code for code, label in SUPPORTED_LANGUAGES.items()}
+
+TRANSLATIONS: dict[str, dict[str, str]] = {
+    "en": {
+        "refresh": "Refresh",
+        "auto": "Auto",
+        "interval": "Interval",
+        "language": "Language",
+        "risk": "Risk",
+        "collecting": "Collecting...",
+        "starting": "Starting...",
+        "updated": "Updated {time}",
+        "error_prefix": "Error",
+        "checkpoint": "Checkpoint Logs WAL",
+        "install_guard": "Install TRACE/DEBUG Guard",
+        "export": "Export JSON Report",
+        "health": "Health",
+        "recent_threads": "Recent Threads",
+        "col_pid": "PID",
+        "col_category": "Category",
+        "col_name": "Name",
+        "col_memory": "Memory",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU sec",
+        "col_started": "Started",
+        "col_path": "Path",
+        "col_updated": "Updated",
+        "col_model": "Model",
+        "col_effort": "Effort",
+        "col_tokens": "Tokens",
+        "col_title": "Title",
+        "col_cwd": "CWD",
+        "col_thread_id": "Thread ID",
+        "summary": (
+            "Codex memory: {codex_memory} across {codex_processes} processes | "
+            "Runtime memory: {runtime_memory} | "
+            "System used: {used_percent:.1f}% ({used_physical}/{total_physical})\n"
+            "Model: {model} / {effort} | logs DB: {db_size}, WAL: {wal_size}, rows: {rows}"
+        ),
+        "collected": "Collected",
+        "codex_home": "Codex home",
+        "config": "Config",
+        "model": "model",
+        "reasoning_effort": "reasoning_effort",
+        "mcp_servers": "MCP servers",
+        "enabled_plugins": "enabled plugins",
+        "memories_enabled": "memories enabled",
+        "logs": "Logs",
+        "path": "path",
+        "db": "db",
+        "wal": "wal",
+        "rows": "rows",
+        "max_id": "max_id",
+        "triggers": "triggers",
+        "levels": "levels",
+        "error": "error",
+        "system_memory": "System Memory",
+        "physical": "physical",
+        "used": "used",
+        "virtual_free": "virtual free",
+        "page_files": "page files",
+        "no_snapshot": "No snapshot collected yet.",
+        "export_title": "Export JSON report",
+        "saved": "Saved {path}",
+        "checkpoint_done": "WAL checkpoint/truncate completed.",
+        "guard_done": "TRACE/DEBUG guard installed.",
+        "risk_single_process": "A single monitored process is above 1.8 GB.",
+        "risk_codex_mem_high": "Total Codex process memory is above 3.5 GB.",
+        "risk_codex_mem_warn": "Total Codex process memory is above 2 GB.",
+        "risk_many_codex": "Many Codex processes are loaded.",
+        "risk_many_runtime": "Many Node/node_repl runtime processes are loaded.",
+        "risk_many_browser": "Many browser/WebView processes are loaded.",
+        "risk_effort": "Default reasoning effort is {effort}.",
+        "risk_db_large": "logs_2.sqlite is very large.",
+        "risk_wal_large": "logs_2.sqlite WAL is very large.",
+        "risk_guard_missing": "TRACE/DEBUG log guard is not installed.",
+        "risk_low_memory": "System free physical memory is below 4 GB.",
+        "risk_many_threads": "Many recent threads are in local state.",
+        "risk_none": "No immediate Codex performance risk detected.",
+    },
+    "zh-CN": {
+        "refresh": "刷新",
+        "auto": "自动",
+        "interval": "间隔",
+        "language": "语言",
+        "risk": "风险",
+        "collecting": "正在采集...",
+        "starting": "正在启动...",
+        "updated": "已更新 {time}",
+        "error_prefix": "错误",
+        "checkpoint": "截断日志 WAL",
+        "install_guard": "安装 TRACE/DEBUG 拦截",
+        "export": "导出 JSON 报告",
+        "health": "健康状态",
+        "recent_threads": "最近会话",
+        "col_pid": "PID",
+        "col_category": "类别",
+        "col_name": "名称",
+        "col_memory": "内存",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU 秒",
+        "col_started": "启动时间",
+        "col_path": "路径",
+        "col_updated": "更新时间",
+        "col_model": "模型",
+        "col_effort": "推理档位",
+        "col_tokens": "Token",
+        "col_title": "标题",
+        "col_cwd": "工作目录",
+        "col_thread_id": "会话 ID",
+        "summary": (
+            "Codex 内存：{codex_memory}，共 {codex_processes} 个进程 | "
+            "运行时内存：{runtime_memory} | "
+            "系统已用：{used_percent:.1f}%（{used_physical}/{total_physical}）\n"
+            "模型：{model} / {effort} | 日志 DB：{db_size}，WAL：{wal_size}，行数：{rows}"
+        ),
+        "collected": "采集时间",
+        "codex_home": "Codex 主目录",
+        "config": "配置",
+        "model": "模型",
+        "reasoning_effort": "推理档位",
+        "mcp_servers": "MCP 服务",
+        "enabled_plugins": "已启用插件",
+        "memories_enabled": "记忆已启用",
+        "logs": "日志",
+        "path": "路径",
+        "db": "数据库",
+        "wal": "WAL",
+        "rows": "行数",
+        "max_id": "最大 ID",
+        "triggers": "触发器",
+        "levels": "级别",
+        "error": "错误",
+        "system_memory": "系统内存",
+        "physical": "物理内存",
+        "used": "已用",
+        "virtual_free": "可用虚拟内存",
+        "page_files": "分页文件",
+        "no_snapshot": "还没有采集快照。",
+        "export_title": "导出 JSON 报告",
+        "saved": "已保存 {path}",
+        "checkpoint_done": "WAL checkpoint/truncate 已完成。",
+        "guard_done": "TRACE/DEBUG 拦截已安装。",
+        "risk_single_process": "单个受监控进程超过 1.8 GB。",
+        "risk_codex_mem_high": "Codex 进程总内存超过 3.5 GB。",
+        "risk_codex_mem_warn": "Codex 进程总内存超过 2 GB。",
+        "risk_many_codex": "Codex 进程数量偏多。",
+        "risk_many_runtime": "Node/node_repl 运行时进程数量偏多。",
+        "risk_many_browser": "浏览器/WebView 进程数量偏多。",
+        "risk_effort": "默认推理档位为 {effort}。",
+        "risk_db_large": "logs_2.sqlite 文件很大。",
+        "risk_wal_large": "logs_2.sqlite WAL 文件很大。",
+        "risk_guard_missing": "尚未安装 TRACE/DEBUG 日志拦截。",
+        "risk_low_memory": "系统可用物理内存低于 4 GB。",
+        "risk_many_threads": "本地最近会话数量偏多。",
+        "risk_none": "未检测到明显的 Codex 性能风险。",
+    },
+    "ja": {
+        "refresh": "更新",
+        "auto": "自動",
+        "interval": "間隔",
+        "language": "言語",
+        "risk": "リスク",
+        "collecting": "収集中...",
+        "starting": "起動中...",
+        "updated": "更新済み {time}",
+        "error_prefix": "エラー",
+        "checkpoint": "ログ WAL を切り詰め",
+        "install_guard": "TRACE/DEBUG ガードを導入",
+        "export": "JSON レポートを書き出し",
+        "health": "ヘルス",
+        "recent_threads": "最近のスレッド",
+    },
+    "ko": {
+        "refresh": "새로 고침",
+        "auto": "자동",
+        "interval": "간격",
+        "language": "언어",
+        "risk": "위험",
+        "collecting": "수집 중...",
+        "starting": "시작 중...",
+        "updated": "업데이트됨 {time}",
+        "error_prefix": "오류",
+        "checkpoint": "로그 WAL 정리",
+        "install_guard": "TRACE/DEBUG 가드 설치",
+        "export": "JSON 보고서 내보내기",
+        "health": "상태",
+        "recent_threads": "최근 스레드",
+    },
+    "es": {
+        "refresh": "Actualizar",
+        "auto": "Auto",
+        "interval": "Intervalo",
+        "language": "Idioma",
+        "risk": "Riesgo",
+        "collecting": "Recopilando...",
+        "starting": "Iniciando...",
+        "updated": "Actualizado {time}",
+        "error_prefix": "Error",
+        "checkpoint": "Truncar WAL de logs",
+        "install_guard": "Instalar guardia TRACE/DEBUG",
+        "export": "Exportar informe JSON",
+        "health": "Estado",
+        "recent_threads": "Hilos recientes",
+    },
+    "fr": {
+        "refresh": "Actualiser",
+        "auto": "Auto",
+        "interval": "Intervalle",
+        "language": "Langue",
+        "risk": "Risque",
+        "collecting": "Collecte...",
+        "starting": "Demarrage...",
+        "updated": "Mis a jour {time}",
+        "error_prefix": "Erreur",
+        "checkpoint": "Tronquer le WAL des logs",
+        "install_guard": "Installer la garde TRACE/DEBUG",
+        "export": "Exporter le rapport JSON",
+        "health": "Sante",
+        "recent_threads": "Fils recents",
+    },
+    "de": {
+        "refresh": "Aktualisieren",
+        "auto": "Auto",
+        "interval": "Intervall",
+        "language": "Sprache",
+        "risk": "Risiko",
+        "collecting": "Sammle...",
+        "starting": "Starte...",
+        "updated": "Aktualisiert {time}",
+        "error_prefix": "Fehler",
+        "checkpoint": "Logs-WAL kuerzen",
+        "install_guard": "TRACE/DEBUG-Schutz installieren",
+        "export": "JSON-Bericht exportieren",
+        "health": "Status",
+        "recent_threads": "Aktuelle Threads",
+    },
+}
+
+RISK_REASON_KEYS = {
+    "A single monitored process is above 1.8 GB.": "risk_single_process",
+    "Total Codex process memory is above 3.5 GB.": "risk_codex_mem_high",
+    "Total Codex process memory is above 2 GB.": "risk_codex_mem_warn",
+    "Many Codex processes are loaded.": "risk_many_codex",
+    "Many Node/node_repl runtime processes are loaded.": "risk_many_runtime",
+    "Many browser/WebView processes are loaded.": "risk_many_browser",
+    "logs_2.sqlite is very large.": "risk_db_large",
+    "logs_2.sqlite WAL is very large.": "risk_wal_large",
+    "TRACE/DEBUG log guard is not installed.": "risk_guard_missing",
+    "System free physical memory is below 4 GB.": "risk_low_memory",
+    "Many recent threads are in local state.": "risk_many_threads",
+    "No immediate Codex performance risk detected.": "risk_none",
+}
+
+TRANSLATIONS["ja"].update(
+    {
+        "col_pid": "PID",
+        "col_category": "カテゴリ",
+        "col_name": "名前",
+        "col_memory": "メモリ",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU 秒",
+        "col_started": "開始時刻",
+        "col_path": "パス",
+        "col_updated": "更新",
+        "col_model": "モデル",
+        "col_effort": "推論",
+        "col_tokens": "トークン",
+        "col_title": "タイトル",
+        "col_cwd": "作業フォルダ",
+        "col_thread_id": "スレッド ID",
+        "summary": (
+            "Codex メモリ: {codex_memory} / {codex_processes} プロセス | "
+            "ランタイム メモリ: {runtime_memory} | "
+            "システム使用率: {used_percent:.1f}% ({used_physical}/{total_physical})\n"
+            "モデル: {model} / {effort} | ログ DB: {db_size}, WAL: {wal_size}, 行: {rows}"
+        ),
+        "collected": "収集時刻",
+        "codex_home": "Codex ホーム",
+        "config": "設定",
+        "model": "モデル",
+        "reasoning_effort": "推論レベル",
+        "mcp_servers": "MCP サーバー",
+        "enabled_plugins": "有効なプラグイン",
+        "memories_enabled": "メモリ有効",
+        "logs": "ログ",
+        "path": "パス",
+        "db": "DB",
+        "wal": "WAL",
+        "rows": "行",
+        "max_id": "最大 ID",
+        "triggers": "トリガー",
+        "levels": "レベル",
+        "error": "エラー",
+        "system_memory": "システム メモリ",
+        "physical": "物理メモリ",
+        "used": "使用中",
+        "virtual_free": "空き仮想メモリ",
+        "page_files": "ページファイル",
+        "no_snapshot": "まだスナップショットがありません。",
+        "export_title": "JSON レポートを書き出し",
+        "saved": "保存しました: {path}",
+        "checkpoint_done": "WAL の checkpoint/truncate が完了しました。",
+        "guard_done": "TRACE/DEBUG ガードを導入しました。",
+        "risk_single_process": "監視対象の単一プロセスが 1.8 GB を超えています。",
+        "risk_codex_mem_high": "Codex プロセスの合計メモリが 3.5 GB を超えています。",
+        "risk_codex_mem_warn": "Codex プロセスの合計メモリが 2 GB を超えています。",
+        "risk_many_codex": "Codex プロセスが多すぎます。",
+        "risk_many_runtime": "Node/node_repl ランタイム プロセスが多すぎます。",
+        "risk_many_browser": "ブラウザ/WebView プロセスが多すぎます。",
+        "risk_effort": "既定の推論レベルは {effort} です。",
+        "risk_db_large": "logs_2.sqlite が非常に大きいです。",
+        "risk_wal_large": "logs_2.sqlite の WAL が非常に大きいです。",
+        "risk_guard_missing": "TRACE/DEBUG ログ ガードが導入されていません。",
+        "risk_low_memory": "空き物理メモリが 4 GB 未満です。",
+        "risk_many_threads": "ローカル状態に最近のスレッドが多すぎます。",
+        "risk_none": "直近の Codex パフォーマンス リスクは検出されませんでした。",
+    }
+)
+
+TRANSLATIONS["ko"].update(
+    {
+        "col_pid": "PID",
+        "col_category": "분류",
+        "col_name": "이름",
+        "col_memory": "메모리",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU 초",
+        "col_started": "시작 시간",
+        "col_path": "경로",
+        "col_updated": "업데이트",
+        "col_model": "모델",
+        "col_effort": "추론",
+        "col_tokens": "토큰",
+        "col_title": "제목",
+        "col_cwd": "작업 폴더",
+        "col_thread_id": "스레드 ID",
+        "summary": (
+            "Codex 메모리: {codex_memory}, {codex_processes}개 프로세스 | "
+            "런타임 메모리: {runtime_memory} | "
+            "시스템 사용: {used_percent:.1f}% ({used_physical}/{total_physical})\n"
+            "모델: {model} / {effort} | 로그 DB: {db_size}, WAL: {wal_size}, 행: {rows}"
+        ),
+        "collected": "수집 시간",
+        "codex_home": "Codex 홈",
+        "config": "설정",
+        "model": "모델",
+        "reasoning_effort": "추론 수준",
+        "mcp_servers": "MCP 서버",
+        "enabled_plugins": "활성 플러그인",
+        "memories_enabled": "메모리 활성",
+        "logs": "로그",
+        "path": "경로",
+        "db": "DB",
+        "wal": "WAL",
+        "rows": "행",
+        "max_id": "최대 ID",
+        "triggers": "트리거",
+        "levels": "레벨",
+        "error": "오류",
+        "system_memory": "시스템 메모리",
+        "physical": "물리 메모리",
+        "used": "사용됨",
+        "virtual_free": "가상 메모리 여유",
+        "page_files": "페이지 파일",
+        "no_snapshot": "아직 수집된 스냅샷이 없습니다.",
+        "export_title": "JSON 보고서 내보내기",
+        "saved": "저장됨: {path}",
+        "checkpoint_done": "WAL checkpoint/truncate가 완료되었습니다.",
+        "guard_done": "TRACE/DEBUG 가드가 설치되었습니다.",
+        "risk_single_process": "감시 중인 단일 프로세스가 1.8 GB를 초과했습니다.",
+        "risk_codex_mem_high": "Codex 프로세스 총 메모리가 3.5 GB를 초과했습니다.",
+        "risk_codex_mem_warn": "Codex 프로세스 총 메모리가 2 GB를 초과했습니다.",
+        "risk_many_codex": "Codex 프로세스가 많이 실행 중입니다.",
+        "risk_many_runtime": "Node/node_repl 런타임 프로세스가 많이 실행 중입니다.",
+        "risk_many_browser": "브라우저/WebView 프로세스가 많이 실행 중입니다.",
+        "risk_effort": "기본 추론 수준은 {effort}입니다.",
+        "risk_db_large": "logs_2.sqlite 파일이 매우 큽니다.",
+        "risk_wal_large": "logs_2.sqlite WAL 파일이 매우 큽니다.",
+        "risk_guard_missing": "TRACE/DEBUG 로그 가드가 설치되어 있지 않습니다.",
+        "risk_low_memory": "시스템 여유 물리 메모리가 4 GB 미만입니다.",
+        "risk_many_threads": "로컬 상태에 최근 스레드가 많습니다.",
+        "risk_none": "즉각적인 Codex 성능 위험이 감지되지 않았습니다.",
+    }
+)
+
+TRANSLATIONS["es"].update(
+    {
+        "col_pid": "PID",
+        "col_category": "Categoria",
+        "col_name": "Nombre",
+        "col_memory": "Memoria",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU s",
+        "col_started": "Inicio",
+        "col_path": "Ruta",
+        "col_updated": "Actualizado",
+        "col_model": "Modelo",
+        "col_effort": "Razonamiento",
+        "col_tokens": "Tokens",
+        "col_title": "Titulo",
+        "col_cwd": "Directorio",
+        "col_thread_id": "ID de hilo",
+        "summary": (
+            "Memoria de Codex: {codex_memory} en {codex_processes} procesos | "
+            "Memoria de runtime: {runtime_memory} | "
+            "Sistema usado: {used_percent:.1f}% ({used_physical}/{total_physical})\n"
+            "Modelo: {model} / {effort} | DB de logs: {db_size}, WAL: {wal_size}, filas: {rows}"
+        ),
+        "collected": "Recopilado",
+        "codex_home": "Inicio de Codex",
+        "config": "Configuracion",
+        "model": "modelo",
+        "reasoning_effort": "nivel de razonamiento",
+        "mcp_servers": "servidores MCP",
+        "enabled_plugins": "plugins activos",
+        "memories_enabled": "memoria activa",
+        "logs": "Logs",
+        "path": "ruta",
+        "db": "db",
+        "wal": "wal",
+        "rows": "filas",
+        "max_id": "id maximo",
+        "triggers": "triggers",
+        "levels": "niveles",
+        "error": "error",
+        "system_memory": "Memoria del sistema",
+        "physical": "fisica",
+        "used": "usada",
+        "virtual_free": "virtual libre",
+        "page_files": "archivos de paginacion",
+        "no_snapshot": "Aun no hay una captura.",
+        "export_title": "Exportar informe JSON",
+        "saved": "Guardado: {path}",
+        "checkpoint_done": "WAL checkpoint/truncate completado.",
+        "guard_done": "Guardia TRACE/DEBUG instalada.",
+        "risk_single_process": "Un proceso supervisado supera 1.8 GB.",
+        "risk_codex_mem_high": "La memoria total de procesos Codex supera 3.5 GB.",
+        "risk_codex_mem_warn": "La memoria total de procesos Codex supera 2 GB.",
+        "risk_many_codex": "Hay muchos procesos Codex cargados.",
+        "risk_many_runtime": "Hay muchos procesos Node/node_repl cargados.",
+        "risk_many_browser": "Hay muchos procesos de navegador/WebView cargados.",
+        "risk_effort": "El razonamiento predeterminado es {effort}.",
+        "risk_db_large": "logs_2.sqlite es muy grande.",
+        "risk_wal_large": "El WAL de logs_2.sqlite es muy grande.",
+        "risk_guard_missing": "La guardia de logs TRACE/DEBUG no esta instalada.",
+        "risk_low_memory": "La memoria fisica libre esta por debajo de 4 GB.",
+        "risk_many_threads": "Hay muchos hilos recientes en el estado local.",
+        "risk_none": "No se detecto un riesgo inmediato de rendimiento de Codex.",
+    }
+)
+
+TRANSLATIONS["fr"].update(
+    {
+        "col_pid": "PID",
+        "col_category": "Categorie",
+        "col_name": "Nom",
+        "col_memory": "Memoire",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU s",
+        "col_started": "Demarre",
+        "col_path": "Chemin",
+        "col_updated": "Mis a jour",
+        "col_model": "Modele",
+        "col_effort": "Raisonnement",
+        "col_tokens": "Tokens",
+        "col_title": "Titre",
+        "col_cwd": "Dossier",
+        "col_thread_id": "ID du fil",
+        "summary": (
+            "Memoire Codex : {codex_memory} sur {codex_processes} processus | "
+            "Memoire runtime : {runtime_memory} | "
+            "Systeme utilise : {used_percent:.1f}% ({used_physical}/{total_physical})\n"
+            "Modele : {model} / {effort} | DB logs : {db_size}, WAL : {wal_size}, lignes : {rows}"
+        ),
+        "collected": "Collecte",
+        "codex_home": "Dossier Codex",
+        "config": "Configuration",
+        "model": "modele",
+        "reasoning_effort": "niveau de raisonnement",
+        "mcp_servers": "serveurs MCP",
+        "enabled_plugins": "plugins actifs",
+        "memories_enabled": "memoire active",
+        "logs": "Logs",
+        "path": "chemin",
+        "db": "db",
+        "wal": "wal",
+        "rows": "lignes",
+        "max_id": "id max",
+        "triggers": "triggers",
+        "levels": "niveaux",
+        "error": "erreur",
+        "system_memory": "Memoire systeme",
+        "physical": "physique",
+        "used": "utilisee",
+        "virtual_free": "virtuelle libre",
+        "page_files": "fichiers d'echange",
+        "no_snapshot": "Aucune capture collectee.",
+        "export_title": "Exporter le rapport JSON",
+        "saved": "Enregistre : {path}",
+        "checkpoint_done": "WAL checkpoint/truncate termine.",
+        "guard_done": "Garde TRACE/DEBUG installee.",
+        "risk_single_process": "Un processus surveille depasse 1.8 Go.",
+        "risk_codex_mem_high": "La memoire totale des processus Codex depasse 3.5 Go.",
+        "risk_codex_mem_warn": "La memoire totale des processus Codex depasse 2 Go.",
+        "risk_many_codex": "De nombreux processus Codex sont charges.",
+        "risk_many_runtime": "De nombreux processus Node/node_repl sont charges.",
+        "risk_many_browser": "De nombreux processus navigateur/WebView sont charges.",
+        "risk_effort": "Le niveau de raisonnement par defaut est {effort}.",
+        "risk_db_large": "logs_2.sqlite est tres volumineux.",
+        "risk_wal_large": "Le WAL de logs_2.sqlite est tres volumineux.",
+        "risk_guard_missing": "La garde TRACE/DEBUG n'est pas installee.",
+        "risk_low_memory": "La memoire physique libre est inferieure a 4 Go.",
+        "risk_many_threads": "L'etat local contient beaucoup de fils recents.",
+        "risk_none": "Aucun risque immediat de performance Codex detecte.",
+    }
+)
+
+TRANSLATIONS["de"].update(
+    {
+        "col_pid": "PID",
+        "col_category": "Kategorie",
+        "col_name": "Name",
+        "col_memory": "Speicher",
+        "col_cpu_pct": "CPU %",
+        "col_cpu_sec": "CPU s",
+        "col_started": "Start",
+        "col_path": "Pfad",
+        "col_updated": "Aktualisiert",
+        "col_model": "Modell",
+        "col_effort": "Reasoning",
+        "col_tokens": "Tokens",
+        "col_title": "Titel",
+        "col_cwd": "Ordner",
+        "col_thread_id": "Thread-ID",
+        "summary": (
+            "Codex-Speicher: {codex_memory} in {codex_processes} Prozessen | "
+            "Runtime-Speicher: {runtime_memory} | "
+            "System genutzt: {used_percent:.1f}% ({used_physical}/{total_physical})\n"
+            "Modell: {model} / {effort} | Logs-DB: {db_size}, WAL: {wal_size}, Zeilen: {rows}"
+        ),
+        "collected": "Erfasst",
+        "codex_home": "Codex-Home",
+        "config": "Konfiguration",
+        "model": "Modell",
+        "reasoning_effort": "Reasoning-Stufe",
+        "mcp_servers": "MCP-Server",
+        "enabled_plugins": "aktive Plugins",
+        "memories_enabled": "Memory aktiv",
+        "logs": "Logs",
+        "path": "Pfad",
+        "db": "DB",
+        "wal": "WAL",
+        "rows": "Zeilen",
+        "max_id": "max_id",
+        "triggers": "Trigger",
+        "levels": "Level",
+        "error": "Fehler",
+        "system_memory": "Systemspeicher",
+        "physical": "physisch",
+        "used": "genutzt",
+        "virtual_free": "virtuell frei",
+        "page_files": "Auslagerungsdateien",
+        "no_snapshot": "Noch kein Snapshot erfasst.",
+        "export_title": "JSON-Bericht exportieren",
+        "saved": "Gespeichert: {path}",
+        "checkpoint_done": "WAL checkpoint/truncate abgeschlossen.",
+        "guard_done": "TRACE/DEBUG-Schutz installiert.",
+        "risk_single_process": "Ein ueberwachter Prozess liegt ueber 1.8 GB.",
+        "risk_codex_mem_high": "Der gesamte Codex-Prozessspeicher liegt ueber 3.5 GB.",
+        "risk_codex_mem_warn": "Der gesamte Codex-Prozessspeicher liegt ueber 2 GB.",
+        "risk_many_codex": "Viele Codex-Prozesse sind geladen.",
+        "risk_many_runtime": "Viele Node/node_repl-Runtime-Prozesse sind geladen.",
+        "risk_many_browser": "Viele Browser/WebView-Prozesse sind geladen.",
+        "risk_effort": "Die Standard-Reasoning-Stufe ist {effort}.",
+        "risk_db_large": "logs_2.sqlite ist sehr gross.",
+        "risk_wal_large": "Das WAL von logs_2.sqlite ist sehr gross.",
+        "risk_guard_missing": "TRACE/DEBUG-Log-Schutz ist nicht installiert.",
+        "risk_low_memory": "Freier physischer Speicher liegt unter 4 GB.",
+        "risk_many_threads": "Viele aktuelle Threads sind im lokalen Zustand.",
+        "risk_none": "Kein unmittelbares Codex-Performance-Risiko erkannt.",
+    }
 )
 
 
 def codex_home() -> Path:
     return Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex"))).expanduser()
+
+
+def detect_language() -> str:
+    language = (locale.getlocale()[0] or "").replace("_", "-").lower()
+    if language.startswith("zh"):
+        return "zh-CN"
+    for code in ("ja", "ko", "es", "fr", "de"):
+        if language.startswith(code):
+            return code
+    return "en"
+
+
+def translate(language: str, key: str, **kwargs: Any) -> str:
+    template = TRANSLATIONS.get(language, {}).get(key) or TRANSLATIONS["en"].get(key) or key
+    return template.format(**kwargs) if kwargs else template
+
+
+def translate_risk_reason(language: str, reason: str) -> str:
+    prefix = "Default reasoning effort is "
+    if reason.startswith(prefix) and reason.endswith("."):
+        effort = reason.removeprefix(prefix).removesuffix(".")
+        return translate(language, "risk_effort", effort=effort)
+    key = RISK_REASON_KEYS.get(reason)
+    if key:
+        return translate(language, key)
+    return reason
 
 
 def utc_from_epoch(value: int | float | None) -> str:
@@ -480,11 +1099,18 @@ class CodexMonitorApp:
         self.previous_cpu: dict[int, tuple[float, float]] = {}
         self.auto_refresh = tk.BooleanVar(value=True)
         self.refresh_interval = tk.IntVar(value=3)
-        self.status_text = tk.StringVar(value="Starting...")
+        self.language = tk.StringVar(value=SUPPORTED_LANGUAGES[detect_language()])
+        self.status_text = tk.StringVar(value=self._t("starting"))
         self._build_ui()
         self.refresh()
         self._poll_queue()
         self._schedule_refresh()
+
+    def _language_code(self) -> str:
+        return LANGUAGE_CODES_BY_LABEL.get(self.language.get(), "en")
+
+    def _t(self, key: str, **kwargs: Any) -> str:
+        return translate(self._language_code(), key, **kwargs)
 
     def _build_ui(self) -> None:
         style = ttk.Style()
@@ -499,14 +1125,28 @@ class CodexMonitorApp:
         top = ttk.Frame(self.root, padding=12)
         top.pack(fill=tk.X)
         ttk.Label(top, text=APP_NAME, font=("Segoe UI", 20, "bold")).pack(side=tk.LEFT)
-        ttk.Button(top, text="Refresh", command=self.refresh).pack(side=tk.RIGHT, padx=(6, 0))
-        ttk.Checkbutton(top, text="Auto", variable=self.auto_refresh).pack(side=tk.RIGHT, padx=(6, 0))
-        ttk.Label(top, text="Interval").pack(side=tk.RIGHT, padx=(10, 4))
+        self.refresh_button = ttk.Button(top, text=self._t("refresh"), command=self.refresh)
+        self.refresh_button.pack(side=tk.RIGHT, padx=(6, 0))
+        self.auto_check = ttk.Checkbutton(top, text=self._t("auto"), variable=self.auto_refresh)
+        self.auto_check.pack(side=tk.RIGHT, padx=(6, 0))
+        self.interval_label = ttk.Label(top, text=self._t("interval"))
+        self.interval_label.pack(side=tk.RIGHT, padx=(10, 4))
         ttk.Spinbox(top, from_=2, to=60, textvariable=self.refresh_interval, width=4).pack(side=tk.RIGHT)
+        self.language_combo = ttk.Combobox(
+            top,
+            textvariable=self.language,
+            values=list(SUPPORTED_LANGUAGES.values()),
+            state="readonly",
+            width=12,
+        )
+        self.language_combo.pack(side=tk.RIGHT, padx=(12, 0))
+        self.language_combo.bind("<<ComboboxSelected>>", self._on_language_change)
+        self.language_label = ttk.Label(top, text=self._t("language"))
+        self.language_label.pack(side=tk.RIGHT, padx=(10, 4))
 
         self.cards = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         self.cards.pack(fill=tk.X)
-        self.risk_label = ttk.Label(self.cards, text="Risk: -", style="Risk.TLabel")
+        self.risk_label = ttk.Label(self.cards, text=f"{self._t('risk')}: -", style="Risk.TLabel")
         self.risk_label.grid(row=0, column=0, sticky="w", padx=(0, 20))
         self.summary_label = ttk.Label(self.cards, text="-", justify=tk.LEFT)
         self.summary_label.grid(row=0, column=1, sticky="w")
@@ -516,11 +1156,12 @@ class CodexMonitorApp:
 
         actions = ttk.Frame(self.root, padding=(12, 0, 12, 8))
         actions.pack(fill=tk.X)
-        ttk.Button(actions, text="Checkpoint Logs WAL", command=self.checkpoint_wal).pack(side=tk.LEFT)
-        ttk.Button(actions, text="Install TRACE/DEBUG Guard", command=self.install_guard).pack(
-            side=tk.LEFT, padx=(8, 0)
-        )
-        ttk.Button(actions, text="Export JSON Report", command=self.export_report).pack(side=tk.LEFT, padx=(8, 0))
+        self.checkpoint_button = ttk.Button(actions, text=self._t("checkpoint"), command=self.checkpoint_wal)
+        self.checkpoint_button.pack(side=tk.LEFT)
+        self.guard_button = ttk.Button(actions, text=self._t("install_guard"), command=self.install_guard)
+        self.guard_button.pack(side=tk.LEFT, padx=(8, 0))
+        self.export_button = ttk.Button(actions, text=self._t("export"), command=self.export_report)
+        self.export_button.pack(side=tk.LEFT, padx=(8, 0))
         ttk.Label(actions, textvariable=self.status_text).pack(side=tk.RIGHT)
 
         panes = ttk.PanedWindow(self.root, orient=tk.VERTICAL)
@@ -535,27 +1176,50 @@ class CodexMonitorApp:
             upper,
             Columns(
                 "processes",
-                ("PID", "Category", "Name", "Memory", "CPU %", "CPU sec", "Started", "Path"),
+                ("col_pid", "col_category", "col_name", "col_memory", "col_cpu_pct", "col_cpu_sec", "col_started", "col_path"),
                 (70, 90, 160, 110, 80, 90, 150, 520),
             ),
         )
-        notebook = ttk.Notebook(lower)
-        notebook.pack(fill=tk.BOTH, expand=True)
+        self.notebook = ttk.Notebook(lower)
+        self.notebook.pack(fill=tk.BOTH, expand=True)
 
-        self.health_text = tk.Text(notebook, height=8, wrap=tk.WORD)
+        self.health_text = tk.Text(self.notebook, height=8, wrap=tk.WORD)
         self.health_text.configure(font=("Consolas", 10))
-        notebook.add(self.health_text, text="Health")
+        self.notebook.add(self.health_text, text=self._t("health"))
 
-        thread_frame = ttk.Frame(notebook)
+        thread_frame = ttk.Frame(self.notebook)
         self.thread_tree = self._make_tree(
             thread_frame,
             Columns(
                 "threads",
-                ("Updated", "Model", "Effort", "Tokens", "Title", "CWD", "Thread ID"),
+                ("col_updated", "col_model", "col_effort", "col_tokens", "col_title", "col_cwd", "col_thread_id"),
                 (150, 90, 90, 90, 240, 320, 260),
             ),
         )
-        notebook.add(thread_frame, text="Recent Threads")
+        self.notebook.add(thread_frame, text=self._t("recent_threads"))
+
+    def _on_language_change(self, _event: object | None = None) -> None:
+        self._apply_language()
+
+    def _apply_language(self) -> None:
+        self.refresh_button.configure(text=self._t("refresh"))
+        self.auto_check.configure(text=self._t("auto"))
+        self.interval_label.configure(text=self._t("interval"))
+        self.language_label.configure(text=self._t("language"))
+        self.checkpoint_button.configure(text=self._t("checkpoint"))
+        self.guard_button.configure(text=self._t("install_guard"))
+        self.export_button.configure(text=self._t("export"))
+        self.notebook.tab(0, text=self._t("health"))
+        self.notebook.tab(1, text=self._t("recent_threads"))
+        for column in self.proc_tree["columns"]:
+            self.proc_tree.heading(column, text=self._t(column))
+        for column in self.thread_tree["columns"]:
+            self.thread_tree.heading(column, text=self._t(column))
+        if self.last_snapshot:
+            self._render_snapshot(self.last_snapshot)
+        else:
+            self.risk_label.configure(text=f"{self._t('risk')}: -")
+            self.status_text.set(self._t("starting"))
 
     def _make_tree(self, parent: ttk.Frame, columns: Columns) -> ttk.Treeview:
         tree = ttk.Treeview(parent, columns=columns.headings, show="headings")
@@ -563,7 +1227,7 @@ class CodexMonitorApp:
         x_scroll = ttk.Scrollbar(parent, orient=tk.HORIZONTAL, command=tree.xview)
         tree.configure(yscrollcommand=y_scroll.set, xscrollcommand=x_scroll.set)
         for heading, width in zip(columns.headings, columns.widths):
-            tree.heading(heading, text=heading)
+            tree.heading(heading, text=self._t(heading))
             tree.column(heading, width=width, anchor=tk.W)
         tree.grid(row=0, column=0, sticky="nsew")
         y_scroll.grid(row=0, column=1, sticky="ns")
@@ -573,7 +1237,7 @@ class CodexMonitorApp:
         return tree
 
     def refresh(self) -> None:
-        self.status_text.set("Collecting...")
+        self.status_text.set(self._t("collecting"))
         threading.Thread(target=self._collect_worker, daemon=True).start()
 
     def _collect_worker(self) -> None:
@@ -590,7 +1254,7 @@ class CodexMonitorApp:
                 if kind == "snapshot":
                     self._render_snapshot(payload)
                 elif kind == "error":
-                    self.status_text.set(f"Error: {payload}")
+                    self.status_text.set(f"{self._t('error_prefix')}: {payload}")
         except queue.Empty:
             pass
         self.root.after(200, self._poll_queue)
@@ -622,19 +1286,26 @@ class CodexMonitorApp:
         config = snapshot["config"]
 
         color = {"OK": "#157347", "WARN": "#a35d00", "CRITICAL": "#b00020"}.get(risk["level"], "#222")
-        self.risk_label.configure(text=f"Risk: {risk['level']} ({risk['score']}/100)", foreground=color)
+        self.risk_label.configure(text=f"{self._t('risk')}: {risk['level']} ({risk['score']}/100)", foreground=color)
         self.summary_label.configure(
-            text=(
-                f"Codex memory: {human_bytes(totals['codex_memory'])} across {totals['codex_processes']} processes | "
-                f"Runtime memory: {human_bytes(totals['runtime_memory'])} | "
-                f"System used: {memory['used_percent']:.1f}% ({human_bytes(memory['used_physical'])}/{human_bytes(memory['total_physical'])})\n"
-                f"Model: {config.get('model') or '-'} / {config.get('reasoning_effort') or '-'} | "
-                f"logs DB: {human_bytes(log_health.get('db_size'))}, WAL: {human_bytes(log_health.get('wal_size'))}, "
-                f"rows: {log_health.get('count')}"
+            text=self._t(
+                "summary",
+                codex_memory=human_bytes(totals["codex_memory"]),
+                codex_processes=totals["codex_processes"],
+                runtime_memory=human_bytes(totals["runtime_memory"]),
+                used_percent=memory["used_percent"],
+                used_physical=human_bytes(memory["used_physical"]),
+                total_physical=human_bytes(memory["total_physical"]),
+                model=config.get("model") or "-",
+                effort=config.get("reasoning_effort") or "-",
+                db_size=human_bytes(log_health.get("db_size")),
+                wal_size=human_bytes(log_health.get("wal_size")),
+                rows=log_health.get("count"),
             )
         )
-        self.reason_label.configure(text="; ".join(risk["reasons"][:4]))
-        self.status_text.set(f"Updated {snapshot['collected_at']}")
+        localized_reasons = [translate_risk_reason(self._language_code(), reason) for reason in risk["reasons"][:4]]
+        self.reason_label.configure(text="; ".join(localized_reasons))
+        self.status_text.set(self._t("updated", time=snapshot["collected_at"]))
 
         for item in self.proc_tree.get_children():
             self.proc_tree.delete(item)
@@ -679,30 +1350,30 @@ class CodexMonitorApp:
         memory = snapshot["system_memory"]
         page_files = memory.get("page_files") or []
         lines = [
-            f"Collected: {snapshot['collected_at']}",
-            f"Codex home: {snapshot['codex_home']}",
+            f"{self._t('collected')}: {snapshot['collected_at']}",
+            f"{self._t('codex_home')}: {snapshot['codex_home']}",
             "",
-            "[Config]",
-            f"  model: {config.get('model')}",
-            f"  reasoning_effort: {config.get('reasoning_effort')}",
-            f"  MCP servers: {config.get('mcp_count')}",
-            f"  enabled plugins: {len(config.get('enabled_plugins') or [])}",
-            f"  memories enabled: {config.get('memories_enabled')}",
+            f"[{self._t('config')}]",
+            f"  {self._t('model')}: {config.get('model')}",
+            f"  {self._t('reasoning_effort')}: {config.get('reasoning_effort')}",
+            f"  {self._t('mcp_servers')}: {config.get('mcp_count')}",
+            f"  {self._t('enabled_plugins')}: {len(config.get('enabled_plugins') or [])}",
+            f"  {self._t('memories_enabled')}: {config.get('memories_enabled')}",
             "",
-            "[Logs]",
-            f"  path: {log_health.get('path')}",
-            f"  db: {human_bytes(log_health.get('db_size'))}",
-            f"  wal: {human_bytes(log_health.get('wal_size'))}",
-            f"  rows: {log_health.get('count')}",
-            f"  max_id: {log_health.get('max_id')}",
-            f"  triggers: {', '.join(log_health.get('triggers') or []) or '-'}",
-            f"  levels: {log_health.get('levels')}",
-            f"  error: {log_health.get('error') or '-'}",
+            f"[{self._t('logs')}]",
+            f"  {self._t('path')}: {log_health.get('path')}",
+            f"  {self._t('db')}: {human_bytes(log_health.get('db_size'))}",
+            f"  {self._t('wal')}: {human_bytes(log_health.get('wal_size'))}",
+            f"  {self._t('rows')}: {log_health.get('count')}",
+            f"  {self._t('max_id')}: {log_health.get('max_id')}",
+            f"  {self._t('triggers')}: {', '.join(log_health.get('triggers') or []) or '-'}",
+            f"  {self._t('levels')}: {log_health.get('levels')}",
+            f"  {self._t('error')}: {log_health.get('error') or '-'}",
             "",
-            "[System Memory]",
-            f"  physical: {human_bytes(memory.get('used_physical'))} used / {human_bytes(memory.get('total_physical'))}",
-            f"  virtual free: {human_bytes(memory.get('free_virtual'))}",
-            f"  page files: {page_files}",
+            f"[{self._t('system_memory')}]",
+            f"  {self._t('physical')}: {human_bytes(memory.get('used_physical'))} {self._t('used')} / {human_bytes(memory.get('total_physical'))}",
+            f"  {self._t('virtual_free')}: {human_bytes(memory.get('free_virtual'))}",
+            f"  {self._t('page_files')}: {page_files}",
         ]
         self.health_text.configure(state=tk.NORMAL)
         self.health_text.delete("1.0", tk.END)
@@ -712,7 +1383,8 @@ class CodexMonitorApp:
     def checkpoint_wal(self) -> None:
         try:
             result = checkpoint_logs(codex_home())
-            messagebox.showinfo(APP_NAME, result["message"])
+            message = self._t("checkpoint_done") if result.get("ok") else result["message"]
+            messagebox.showinfo(APP_NAME, message)
             self.refresh()
         except Exception as exc:
             messagebox.showerror(APP_NAME, str(exc))
@@ -720,18 +1392,19 @@ class CodexMonitorApp:
     def install_guard(self) -> None:
         try:
             result = install_trace_guard(codex_home())
-            messagebox.showinfo(APP_NAME, result["message"])
+            message = self._t("guard_done") if result.get("ok") else result["message"]
+            messagebox.showinfo(APP_NAME, message)
             self.refresh()
         except Exception as exc:
             messagebox.showerror(APP_NAME, str(exc))
 
     def export_report(self) -> None:
         if not self.last_snapshot:
-            messagebox.showwarning(APP_NAME, "No snapshot collected yet.")
+            messagebox.showwarning(APP_NAME, self._t("no_snapshot"))
             return
         default_name = f"codex-performance-report-{datetime.now().strftime('%Y%m%d-%H%M%S')}.json"
         path = filedialog.asksaveasfilename(
-            title="Export JSON report",
+            title=self._t("export_title"),
             defaultextension=".json",
             initialfile=default_name,
             filetypes=[("JSON", "*.json")],
@@ -739,7 +1412,7 @@ class CodexMonitorApp:
         if not path:
             return
         Path(path).write_text(json.dumps(self.last_snapshot, ensure_ascii=False, indent=2), encoding="utf-8")
-        messagebox.showinfo(APP_NAME, f"Saved {path}")
+        messagebox.showinfo(APP_NAME, self._t("saved", path=path))
 
 
 def main() -> int:
