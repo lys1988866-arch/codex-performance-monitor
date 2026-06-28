@@ -30,7 +30,7 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.3.0"
+APP_VERSION = "0.4.0"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
 )
@@ -58,6 +58,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Error",
         "checkpoint": "Checkpoint Logs WAL",
         "install_guard": "Install TRACE/DEBUG Guard",
+        "optimize_memory": "Optimize Memory",
         "end_process": "End Selected Process",
         "copy_pid": "Copy PID",
         "export": "Export JSON Report",
@@ -110,6 +111,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "no_snapshot": "No snapshot collected yet.",
         "export_title": "Export JSON report",
         "saved": "Saved {path}",
+        "optimizing": "Optimizing memory...",
+        "confirm_optimize_title": "Optimize memory?",
+        "confirm_optimize_memory": (
+            "Trim working-set memory for {count} monitored processes?\n\n"
+            "This does not kill processes or delete data. Windows may page memory back in later, and busy apps may feel slower briefly."
+        ),
+        "optimize_done": "Optimized {success}/{attempted} processes. Estimated physical memory released: {released}.",
+        "optimize_failed": "Some processes could not be optimized: {failed} failed.",
         "no_process_selected": "Select a process first.",
         "pid_copied": "Copied PID {pid}.",
         "confirm_end_title": "End process?",
@@ -129,10 +138,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "actions_selected_process": "Selected process: PID {pid}, {name}, {memory}",
         "actions_no_selection": "No process selected. Select a row in the process table to act on it.",
         "actions_step_select": "1. Sort by Memory and select a stale Node, browser/WebView, or old Codex worker process.",
-        "actions_step_end": "2. Use End Selected Process only after confirming it is not doing useful work.",
-        "actions_step_logs": "3. Use Checkpoint Logs WAL and Install TRACE/DEBUG Guard when log size or WAL growth contributes to risk.",
-        "actions_step_threads": "4. Close or archive completed Codex threads, stop unused dev servers, and reduce parallel heavy tasks.",
-        "actions_step_restart": "5. If Codex main memory stays high after work is saved, restart Codex Desktop manually.",
+        "actions_step_optimize": "2. Use Optimize Memory to trim reclaimable working-set memory without killing processes.",
+        "actions_step_end": "3. Use End Selected Process only after confirming it is not doing useful work.",
+        "actions_step_logs": "4. Use Checkpoint Logs WAL and Install TRACE/DEBUG Guard when log size or WAL growth contributes to risk.",
+        "actions_step_threads": "5. Close or archive completed Codex threads, stop unused dev servers, and reduce parallel heavy tasks.",
+        "actions_step_restart": "6. If Codex main memory stays high after work is saved, restart Codex Desktop manually.",
         "checkpoint_done": "WAL checkpoint/truncate completed.",
         "guard_done": "TRACE/DEBUG guard installed.",
         "risk_single_process": "A single monitored process is above 1.8 GB.",
@@ -161,6 +171,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "错误",
         "checkpoint": "截断日志 WAL",
         "install_guard": "安装 TRACE/DEBUG 拦截",
+        "optimize_memory": "优化内存",
         "end_process": "结束选中进程",
         "copy_pid": "复制 PID",
         "export": "导出 JSON 报告",
@@ -213,6 +224,14 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "no_snapshot": "还没有采集快照。",
         "export_title": "导出 JSON 报告",
         "saved": "已保存 {path}",
+        "optimizing": "正在优化内存...",
+        "confirm_optimize_title": "优化内存？",
+        "confirm_optimize_memory": (
+            "对 {count} 个受监控进程修剪工作集内存吗？\n\n"
+            "这不会结束进程，也不会删除数据。Windows 后续可能会把部分内存重新换入，忙碌中的应用可能短暂变慢。"
+        ),
+        "optimize_done": "已优化 {success}/{attempted} 个进程。估算释放物理内存：{released}。",
+        "optimize_failed": "部分进程无法优化：失败 {failed} 个。",
         "no_process_selected": "请先选中一个进程。",
         "pid_copied": "已复制 PID {pid}。",
         "confirm_end_title": "结束进程？",
@@ -232,10 +251,11 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "actions_selected_process": "当前选中进程：PID {pid}，{name}，{memory}",
         "actions_no_selection": "尚未选中进程。请先在进程表格里选中一行。",
         "actions_step_select": "1. 按内存排序，优先选中已经不用的 Node、浏览器/WebView 或旧 Codex worker。",
-        "actions_step_end": "2. 确认它不是正在工作的任务后，再点击“结束选中进程”。",
-        "actions_step_logs": "3. 如果日志 DB/WAL 偏大，先执行“截断日志 WAL”和“安装 TRACE/DEBUG 拦截”。",
-        "actions_step_threads": "4. 关闭或归档已完成的 Codex 会话，停止不用的开发服务器，减少并行重任务。",
-        "actions_step_restart": "5. 如果保存工作后 Codex 主进程内存仍长期偏高，手动重启 Codex Desktop。",
+        "actions_step_optimize": "2. 先点击“优化内存”，在不结束进程的情况下回收可释放工作集内存。",
+        "actions_step_end": "3. 确认它不是正在工作的任务后，再点击“结束选中进程”。",
+        "actions_step_logs": "4. 如果日志 DB/WAL 偏大，先执行“截断日志 WAL”和“安装 TRACE/DEBUG 拦截”。",
+        "actions_step_threads": "5. 关闭或归档已完成的 Codex 会话，停止不用的开发服务器，减少并行重任务。",
+        "actions_step_restart": "6. 如果保存工作后 Codex 主进程内存仍长期偏高，手动重启 Codex Desktop。",
         "checkpoint_done": "WAL checkpoint/truncate 已完成。",
         "guard_done": "TRACE/DEBUG 拦截已安装。",
         "risk_single_process": "单个受监控进程超过 1.8 GB。",
@@ -264,6 +284,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "エラー",
         "checkpoint": "ログ WAL を切り詰め",
         "install_guard": "TRACE/DEBUG ガードを導入",
+        "optimize_memory": "メモリ最適化",
         "end_process": "選択プロセスを終了",
         "copy_pid": "PID をコピー",
         "export": "JSON レポートを書き出し",
@@ -283,6 +304,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "오류",
         "checkpoint": "로그 WAL 정리",
         "install_guard": "TRACE/DEBUG 가드 설치",
+        "optimize_memory": "메모리 최적화",
         "end_process": "선택한 프로세스 종료",
         "copy_pid": "PID 복사",
         "export": "JSON 보고서 내보내기",
@@ -302,6 +324,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Error",
         "checkpoint": "Truncar WAL de logs",
         "install_guard": "Instalar guardia TRACE/DEBUG",
+        "optimize_memory": "Optimizar memoria",
         "end_process": "Finalizar proceso seleccionado",
         "copy_pid": "Copiar PID",
         "export": "Exportar informe JSON",
@@ -321,6 +344,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Erreur",
         "checkpoint": "Tronquer le WAL des logs",
         "install_guard": "Installer la garde TRACE/DEBUG",
+        "optimize_memory": "Optimiser la memoire",
         "end_process": "Terminer le processus selectionne",
         "copy_pid": "Copier le PID",
         "export": "Exporter le rapport JSON",
@@ -340,6 +364,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Fehler",
         "checkpoint": "Logs-WAL kuerzen",
         "install_guard": "TRACE/DEBUG-Schutz installieren",
+        "optimize_memory": "Speicher optimieren",
         "end_process": "Ausgewaehlten Prozess beenden",
         "copy_pid": "PID kopieren",
         "export": "JSON-Bericht exportieren",
@@ -1045,6 +1070,83 @@ def terminate_process(pid: int) -> dict[str, Any]:
     return {"ok": True}
 
 
+def optimize_working_sets(processes: list[dict[str, Any]]) -> dict[str, Any]:
+    if os.name != "nt":
+        return {"ok": False, "error": "Memory optimization is implemented only on Windows."}
+
+    current_pid = os.getpid()
+    targets: dict[int, dict[str, Any]] = {}
+    for process in processes:
+        pid = int(process.get("id") or 0)
+        if pid and pid != current_pid:
+            targets[pid] = process
+
+    if not targets:
+        return {"ok": True, "attempted": 0, "success": 0, "failed": 0, "released": 0, "failures": []}
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    psapi = ctypes.WinDLL("psapi", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+    open_process.restype = ctypes.c_void_p
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [ctypes.c_void_p]
+    close_handle.restype = ctypes.c_int
+    empty_working_set = psapi.EmptyWorkingSet
+    empty_working_set.argtypes = [ctypes.c_void_p]
+    empty_working_set.restype = ctypes.c_int
+
+    process_query_information = 0x0400
+    process_set_quota = 0x0100
+    access = process_query_information | process_set_quota
+    failures: list[dict[str, Any]] = []
+    success = 0
+
+    for pid, process in targets.items():
+        handle = open_process(access, 0, pid)
+        if not handle:
+            error = ctypes.get_last_error()
+            failures.append(
+                {
+                    "pid": pid,
+                    "name": process.get("name", ""),
+                    "error": ctypes.FormatError(error).strip() or f"Windows error {error}",
+                }
+            )
+            continue
+        try:
+            if empty_working_set(handle):
+                success += 1
+            else:
+                error = ctypes.get_last_error()
+                failures.append(
+                    {
+                        "pid": pid,
+                        "name": process.get("name", ""),
+                        "error": ctypes.FormatError(error).strip() or f"Windows error {error}",
+                    }
+                )
+        finally:
+            close_handle(handle)
+
+    time.sleep(0.5)
+    after = {process["id"]: process for process in collect_processes()}
+    released = 0
+    for pid, before_process in targets.items():
+        after_process = after.get(pid)
+        if after_process:
+            released += max(int(before_process.get("working_set") or 0) - int(after_process.get("working_set") or 0), 0)
+
+    return {
+        "ok": True,
+        "attempted": len(targets),
+        "success": success,
+        "failed": len(failures),
+        "released": released,
+        "failures": failures,
+    }
+
+
 def assess_risk(snapshot: dict[str, Any]) -> dict[str, Any]:
     processes = snapshot["processes"]
     log_health = snapshot["log_health"]
@@ -1259,6 +1361,8 @@ class CodexMonitorApp:
         self.checkpoint_button.pack(side=tk.LEFT)
         self.guard_button = ttk.Button(actions, text=self._t("install_guard"), command=self.install_guard)
         self.guard_button.pack(side=tk.LEFT, padx=(8, 0))
+        self.optimize_memory_button = ttk.Button(actions, text=self._t("optimize_memory"), command=self.optimize_memory)
+        self.optimize_memory_button.pack(side=tk.LEFT, padx=(8, 0))
         self.end_process_button = ttk.Button(actions, text=self._t("end_process"), command=self.end_selected_process)
         self.end_process_button.pack(side=tk.LEFT, padx=(8, 0))
         self.copy_pid_button = ttk.Button(actions, text=self._t("copy_pid"), command=self.copy_selected_pid)
@@ -1316,6 +1420,7 @@ class CodexMonitorApp:
         self.language_label.configure(text=self._t("language"))
         self.checkpoint_button.configure(text=self._t("checkpoint"))
         self.guard_button.configure(text=self._t("install_guard"))
+        self.optimize_memory_button.configure(text=self._t("optimize_memory"))
         self.end_process_button.configure(text=self._t("end_process"))
         self.copy_pid_button.configure(text=self._t("copy_pid"))
         self.export_button.configure(text=self._t("export"))
@@ -1505,6 +1610,7 @@ class CodexMonitorApp:
             [
                 "",
                 self._t("actions_step_select"),
+                self._t("actions_step_optimize"),
                 self._t("actions_step_end"),
                 self._t("actions_step_logs"),
                 self._t("actions_step_threads"),
@@ -1551,6 +1657,39 @@ class CodexMonitorApp:
         self.health_text.delete("1.0", tk.END)
         self.health_text.insert(tk.END, "\n".join(lines))
         self.health_text.configure(state=tk.DISABLED)
+
+    def optimize_memory(self) -> None:
+        if not self.last_snapshot:
+            messagebox.showwarning(APP_NAME, self._t("no_snapshot"))
+            return
+        processes = list(self.last_snapshot.get("processes") or [])
+        targets = [process for process in processes if int(process.get("id") or 0) != os.getpid()]
+        if not targets:
+            messagebox.showwarning(APP_NAME, self._t("no_process_selected"))
+            return
+        confirmed = messagebox.askyesno(
+            self._t("confirm_optimize_title"),
+            self._t("confirm_optimize_memory", count=len(targets)),
+            icon=messagebox.WARNING,
+        )
+        if not confirmed:
+            return
+        self.status_text.set(self._t("optimizing"))
+        self.root.update_idletasks()
+        result = optimize_working_sets(targets)
+        if not result.get("ok"):
+            messagebox.showerror(APP_NAME, str(result.get("error") or "Memory optimization failed."))
+            return
+        message = self._t(
+            "optimize_done",
+            success=result.get("success", 0),
+            attempted=result.get("attempted", 0),
+            released=human_bytes(result.get("released", 0)),
+        )
+        if result.get("failed"):
+            message = f"{message}\n{self._t('optimize_failed', failed=result.get('failed'))}"
+        messagebox.showinfo(APP_NAME, message)
+        self.refresh()
 
     def copy_selected_pid(self) -> None:
         process = self._selected_process()

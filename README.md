@@ -31,6 +31,7 @@ Codex Desktop can become unstable when several heavy tasks run at the same time,
 - Recent local Codex threads from `state_5.sqlite`.
 - Risk score with concrete reasons.
 - Action panel for practical remediation steps.
+- Optimize memory by trimming monitored process working sets.
 - End a selected process after explicit confirmation.
 - Copy a selected process PID for manual investigation.
 - One-click `logs_2.sqlite` WAL checkpoint/truncate.
@@ -114,6 +115,7 @@ The monitor is read-only by default. The two manual action buttons modify only t
 
 - `Checkpoint Logs WAL`: runs `PRAGMA wal_checkpoint(TRUNCATE)`.
 - `Install TRACE/DEBUG Guard`: creates a SQLite trigger that ignores new `TRACE` and `DEBUG` rows while keeping `INFO`, `WARN`, and `ERROR`.
+- `Optimize Memory`: asks Windows to trim reclaimable working-set memory for monitored processes. It does not kill processes.
 - `End Selected Process`: terminates only the process row you explicitly select and confirm.
 
 It does not install Codex, reinstall Codex, or modify Codex projects.

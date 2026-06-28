@@ -13,6 +13,7 @@ Funciona como un administrador de tareas especializado para Codex: muestra proce
 - Conversaciones locales recientes.
 - Puntuacion de riesgo con razones concretas.
 - Panel de acciones con pasos practicos.
+- Optimizar memoria recortando el working set de procesos supervisados.
 - Finalizar un proceso seleccionado con confirmacion explicita.
 - Copiar el PID seleccionado.
 - Checkpoint/truncate del WAL de logs.
@@ -51,4 +52,4 @@ Salida:
 
 ## Seguridad
 
-Por defecto es de solo lectura. Los botones de logs solo modifican la base SQLite local de logs de Codex. La accion de finalizar proceso solo termina el proceso seleccionado y confirmado. No instala ni reinstala Codex y no modifica proyectos de Codex.
+Por defecto es de solo lectura. Los botones de logs solo modifican la base SQLite local de logs de Codex. Optimizar memoria solo pide a Windows recortar working sets y no mata procesos. La accion de finalizar proceso solo termina el proceso seleccionado y confirmado. No instala ni reinstala Codex y no modifica proyectos de Codex.

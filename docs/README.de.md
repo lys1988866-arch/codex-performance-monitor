@@ -13,6 +13,7 @@ Es funktioniert wie ein spezialisierter Task-Manager fuer Codex: Codex-Prozesse,
 - Aktuelle lokale Codex-Threads.
 - Risikowert mit konkreten Gruenden.
 - Aktionsbereich mit praktischen Schritten.
+- Speicher optimieren, indem Working Sets ueberwachter Prozesse gekuerzt werden.
 - Ausgewaehlten Prozess nach expliziter Bestaetigung beenden.
 - Ausgewaehlte PID kopieren.
 - Checkpoint/truncate fuer das Logs-WAL.
@@ -51,4 +52,4 @@ Ausgabe:
 
 ## Sicherheit
 
-Standardmaessig ist das Tool nur lesend. Die Log-Buttons aendern nur die lokale SQLite-Logdatenbank von Codex. Prozessbeenden betrifft nur den ausgewaehlten und bestaetigten Prozess. Es installiert Codex nicht, installiert Codex nicht neu und aendert keine Codex-Projekte.
+Standardmaessig ist das Tool nur lesend. Die Log-Buttons aendern nur die lokale SQLite-Logdatenbank von Codex. Speicher optimieren fordert Windows nur zum Kuerzen von Working Sets auf und beendet keine Prozesse. Prozessbeenden betrifft nur den ausgewaehlten und bestaetigten Prozess. Es installiert Codex nicht, installiert Codex nicht neu und aendert keine Codex-Projekte.

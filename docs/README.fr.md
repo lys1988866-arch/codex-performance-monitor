@@ -13,6 +13,7 @@ Il fonctionne comme un gestionnaire de taches specialise pour Codex : processus 
 - Fils locaux recents.
 - Score de risque avec raisons concretes.
 - Panneau d'actions avec etapes pratiques.
+- Optimiser la memoire en reduisant le working set des processus surveilles.
 - Terminer un processus selectionne apres confirmation explicite.
 - Copier le PID selectionne.
 - Checkpoint/truncate du WAL des logs.
@@ -51,4 +52,4 @@ Sortie :
 
 ## Securite
 
-Par defaut l'outil est en lecture seule. Les boutons de logs ne modifient que la base SQLite locale des logs Codex. L'action de terminaison ne concerne que le processus selectionne et confirme. Il n'installe pas Codex, ne reinstalle pas Codex et ne modifie pas les projets Codex.
+Par defaut l'outil est en lecture seule. Les boutons de logs ne modifient que la base SQLite locale des logs Codex. Optimiser la memoire demande seulement a Windows de reduire les working sets et ne tue pas les processus. L'action de terminaison ne concerne que le processus selectionne et confirme. Il n'installe pas Codex, ne reinstalle pas Codex et ne modifie pas les projets Codex.

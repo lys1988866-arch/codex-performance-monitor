@@ -47,7 +47,7 @@ ui = app.CodexMonitorApp(root)
 for code, label in app.SUPPORTED_LANGUAGES.items():
     ui.language.set(label)
     ui._apply_language()
-    if not ui.refresh_button.cget("text") or not ui.notebook.tab(0, "text"):
+    if not ui.refresh_button.cget("text") or not ui.optimize_memory_button.cget("text") or not ui.notebook.tab(0, "text"):
         raise RuntimeError(f"Language {code} rendered empty UI text")
 root.destroy()
 print("language_smoke_ok")
@@ -60,6 +60,11 @@ print("language_smoke_ok")
   & $python.Source -c "import os, sys; sys.path.insert(0, 'src'); import codex_monitor_app as app; result = app.terminate_process(os.getpid()); assert result['ok'] is False and result['error'] == 'cannot_terminate_self'; print('terminate_self_guard_ok')"
   if ($LASTEXITCODE -ne 0) {
     throw "Terminate self guard test failed."
+  }
+
+  & $python.Source -c "import sys; sys.path.insert(0, 'src'); import codex_monitor_app as app; result = app.optimize_working_sets([]); assert result['ok'] is True and result['attempted'] == 0; print('optimize_empty_ok')"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Optimize memory empty-target test failed."
   }
 
   Write-Host "Validation passed"
