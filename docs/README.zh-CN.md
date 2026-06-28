@@ -12,6 +12,9 @@ Codex Performance Monitor 是一个 Windows 本地桌面工具，用来观察 Co
 - 显示当前模型、推理档位、MCP 服务和已启用插件。
 - 查看最近本地 Codex 会话。
 - 给出风险评分和具体原因。
+- 显示可执行的处理建议。
+- 选中进程后，经确认可结束该进程。
+- 可复制选中进程 PID，方便进一步排查。
 - 一键 checkpoint/truncate 日志 WAL。
 - 一键安装 TRACE/DEBUG 日志拦截。
 - 导出 JSON 报告。
@@ -54,4 +57,4 @@ python .\src\codex_monitor_app.py --summary
 
 ## 安全说明
 
-默认只读。只有两个手动按钮会修改本机 Codex 日志数据库：截断 WAL、安装 TRACE/DEBUG 拦截。它不会杀进程、不会安装或重装 Codex，也不会修改你的 Codex 项目。
+默认只读。日志相关按钮只会修改本机 Codex 日志数据库：截断 WAL、安装 TRACE/DEBUG 拦截。结束进程按钮只会结束你明确选中并确认的单个进程。它不会安装或重装 Codex，也不会修改你的 Codex 项目。

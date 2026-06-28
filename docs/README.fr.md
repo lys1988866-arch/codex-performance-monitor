@@ -12,6 +12,9 @@ Il fonctionne comme un gestionnaire de taches specialise pour Codex : processus 
 - Modele courant, niveau de raisonnement, serveurs MCP et plugins actifs.
 - Fils locaux recents.
 - Score de risque avec raisons concretes.
+- Panneau d'actions avec etapes pratiques.
+- Terminer un processus selectionne apres confirmation explicite.
+- Copier le PID selectionne.
 - Checkpoint/truncate du WAL des logs.
 - Installation d'une garde pour les logs TRACE/DEBUG.
 - Export de rapport JSON.
@@ -48,4 +51,4 @@ Sortie :
 
 ## Securite
 
-Par defaut l'outil est en lecture seule. Les deux boutons manuels ne modifient que la base SQLite locale des logs Codex. Il ne tue pas de processus, n'installe pas Codex, ne reinstalle pas Codex et ne modifie pas les projets Codex.
+Par defaut l'outil est en lecture seule. Les boutons de logs ne modifient que la base SQLite locale des logs Codex. L'action de terminaison ne concerne que le processus selectionne et confirme. Il n'installe pas Codex, ne reinstalle pas Codex et ne modifie pas les projets Codex.

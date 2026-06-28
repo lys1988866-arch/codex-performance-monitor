@@ -30,6 +30,9 @@ Codex Desktop can become unstable when several heavy tasks run at the same time,
 - Enabled plugin and MCP server counts.
 - Recent local Codex threads from `state_5.sqlite`.
 - Risk score with concrete reasons.
+- Action panel for practical remediation steps.
+- End a selected process after explicit confirmation.
+- Copy a selected process PID for manual investigation.
 - One-click `logs_2.sqlite` WAL checkpoint/truncate.
 - One-click TRACE/DEBUG log guard installation.
 - JSON report export.
@@ -111,8 +114,9 @@ The monitor is read-only by default. The two manual action buttons modify only t
 
 - `Checkpoint Logs WAL`: runs `PRAGMA wal_checkpoint(TRUNCATE)`.
 - `Install TRACE/DEBUG Guard`: creates a SQLite trigger that ignores new `TRACE` and `DEBUG` rows while keeping `INFO`, `WARN`, and `ERROR`.
+- `End Selected Process`: terminates only the process row you explicitly select and confirm.
 
-It does not kill processes, install Codex, reinstall Codex, or modify Codex projects.
+It does not install Codex, reinstall Codex, or modify Codex projects.
 
 ## Repository
 

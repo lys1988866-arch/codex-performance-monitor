@@ -12,6 +12,9 @@ Funciona como un administrador de tareas especializado para Codex: muestra proce
 - Modelo actual, nivel de razonamiento, servidores MCP y plugins activos.
 - Conversaciones locales recientes.
 - Puntuacion de riesgo con razones concretas.
+- Panel de acciones con pasos practicos.
+- Finalizar un proceso seleccionado con confirmacion explicita.
+- Copiar el PID seleccionado.
 - Checkpoint/truncate del WAL de logs.
 - Instalacion de guardia para logs TRACE/DEBUG.
 - Exportacion de informe JSON.
@@ -48,4 +51,4 @@ Salida:
 
 ## Seguridad
 
-Por defecto es de solo lectura. Los dos botones manuales solo modifican la base SQLite local de logs de Codex. No mata procesos, no instala ni reinstala Codex y no modifica proyectos de Codex.
+Por defecto es de solo lectura. Los botones de logs solo modifican la base SQLite local de logs de Codex. La accion de finalizar proceso solo termina el proceso seleccionado y confirmado. No instala ni reinstala Codex y no modifica proyectos de Codex.

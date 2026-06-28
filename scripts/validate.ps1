@@ -57,6 +57,11 @@ print("language_smoke_ok")
     throw "Language switch smoke test failed."
   }
 
+  & $python.Source -c "import os, sys; sys.path.insert(0, 'src'); import codex_monitor_app as app; result = app.terminate_process(os.getpid()); assert result['ok'] is False and result['error'] == 'cannot_terminate_self'; print('terminate_self_guard_ok')"
+  if ($LASTEXITCODE -ne 0) {
+    throw "Terminate self guard test failed."
+  }
+
   Write-Host "Validation passed"
   Write-Host ("Risk: {0} ({1}/100)" -f $summary.risk.level, $summary.risk.score)
   Write-Host ("Processes: {0}; recent threads: {1}" -f $summary.processes.total, $summary.recent_threads)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import ctypes
 import json
 import locale
 import os
@@ -29,7 +30,7 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
 )
@@ -57,7 +58,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Error",
         "checkpoint": "Checkpoint Logs WAL",
         "install_guard": "Install TRACE/DEBUG Guard",
+        "end_process": "End Selected Process",
+        "copy_pid": "Copy PID",
         "export": "Export JSON Report",
+        "actions": "Actions",
         "health": "Health",
         "recent_threads": "Recent Threads",
         "col_pid": "PID",
@@ -106,6 +110,29 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "no_snapshot": "No snapshot collected yet.",
         "export_title": "Export JSON report",
         "saved": "Saved {path}",
+        "no_process_selected": "Select a process first.",
+        "pid_copied": "Copied PID {pid}.",
+        "confirm_end_title": "End process?",
+        "confirm_end_process": (
+            "End this process now?\n\n"
+            "PID: {pid}\n"
+            "Name: {name}\n"
+            "Memory: {memory}\n"
+            "Path: {path}\n\n"
+            "Ending Codex, Node, browser, or runtime processes can interrupt active tasks. Save work first."
+        ),
+        "terminate_done": "Terminated PID {pid}.",
+        "terminate_failed": "Failed to terminate PID {pid}: {error}",
+        "cannot_terminate_self": "The monitor cannot terminate itself.",
+        "actions_header": "Recommended actions",
+        "actions_top_process": "Top memory process: PID {pid}, {name}, {memory}",
+        "actions_selected_process": "Selected process: PID {pid}, {name}, {memory}",
+        "actions_no_selection": "No process selected. Select a row in the process table to act on it.",
+        "actions_step_select": "1. Sort by Memory and select a stale Node, browser/WebView, or old Codex worker process.",
+        "actions_step_end": "2. Use End Selected Process only after confirming it is not doing useful work.",
+        "actions_step_logs": "3. Use Checkpoint Logs WAL and Install TRACE/DEBUG Guard when log size or WAL growth contributes to risk.",
+        "actions_step_threads": "4. Close or archive completed Codex threads, stop unused dev servers, and reduce parallel heavy tasks.",
+        "actions_step_restart": "5. If Codex main memory stays high after work is saved, restart Codex Desktop manually.",
         "checkpoint_done": "WAL checkpoint/truncate completed.",
         "guard_done": "TRACE/DEBUG guard installed.",
         "risk_single_process": "A single monitored process is above 1.8 GB.",
@@ -134,7 +161,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "错误",
         "checkpoint": "截断日志 WAL",
         "install_guard": "安装 TRACE/DEBUG 拦截",
+        "end_process": "结束选中进程",
+        "copy_pid": "复制 PID",
         "export": "导出 JSON 报告",
+        "actions": "处理动作",
         "health": "健康状态",
         "recent_threads": "最近会话",
         "col_pid": "PID",
@@ -183,6 +213,29 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "no_snapshot": "还没有采集快照。",
         "export_title": "导出 JSON 报告",
         "saved": "已保存 {path}",
+        "no_process_selected": "请先选中一个进程。",
+        "pid_copied": "已复制 PID {pid}。",
+        "confirm_end_title": "结束进程？",
+        "confirm_end_process": (
+            "现在结束这个进程吗？\n\n"
+            "PID：{pid}\n"
+            "名称：{name}\n"
+            "内存：{memory}\n"
+            "路径：{path}\n\n"
+            "结束 Codex、Node、浏览器或运行时进程可能会中断正在执行的任务。请先确认工作已保存。"
+        ),
+        "terminate_done": "已结束 PID {pid}。",
+        "terminate_failed": "结束 PID {pid} 失败：{error}",
+        "cannot_terminate_self": "监控器不能结束自身进程。",
+        "actions_header": "建议处理动作",
+        "actions_top_process": "最高内存进程：PID {pid}，{name}，{memory}",
+        "actions_selected_process": "当前选中进程：PID {pid}，{name}，{memory}",
+        "actions_no_selection": "尚未选中进程。请先在进程表格里选中一行。",
+        "actions_step_select": "1. 按内存排序，优先选中已经不用的 Node、浏览器/WebView 或旧 Codex worker。",
+        "actions_step_end": "2. 确认它不是正在工作的任务后，再点击“结束选中进程”。",
+        "actions_step_logs": "3. 如果日志 DB/WAL 偏大，先执行“截断日志 WAL”和“安装 TRACE/DEBUG 拦截”。",
+        "actions_step_threads": "4. 关闭或归档已完成的 Codex 会话，停止不用的开发服务器，减少并行重任务。",
+        "actions_step_restart": "5. 如果保存工作后 Codex 主进程内存仍长期偏高，手动重启 Codex Desktop。",
         "checkpoint_done": "WAL checkpoint/truncate 已完成。",
         "guard_done": "TRACE/DEBUG 拦截已安装。",
         "risk_single_process": "单个受监控进程超过 1.8 GB。",
@@ -211,7 +264,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "エラー",
         "checkpoint": "ログ WAL を切り詰め",
         "install_guard": "TRACE/DEBUG ガードを導入",
+        "end_process": "選択プロセスを終了",
+        "copy_pid": "PID をコピー",
         "export": "JSON レポートを書き出し",
+        "actions": "操作",
         "health": "ヘルス",
         "recent_threads": "最近のスレッド",
     },
@@ -227,7 +283,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "오류",
         "checkpoint": "로그 WAL 정리",
         "install_guard": "TRACE/DEBUG 가드 설치",
+        "end_process": "선택한 프로세스 종료",
+        "copy_pid": "PID 복사",
         "export": "JSON 보고서 내보내기",
+        "actions": "작업",
         "health": "상태",
         "recent_threads": "최근 스레드",
     },
@@ -243,7 +302,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Error",
         "checkpoint": "Truncar WAL de logs",
         "install_guard": "Instalar guardia TRACE/DEBUG",
+        "end_process": "Finalizar proceso seleccionado",
+        "copy_pid": "Copiar PID",
         "export": "Exportar informe JSON",
+        "actions": "Acciones",
         "health": "Estado",
         "recent_threads": "Hilos recientes",
     },
@@ -259,7 +321,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Erreur",
         "checkpoint": "Tronquer le WAL des logs",
         "install_guard": "Installer la garde TRACE/DEBUG",
+        "end_process": "Terminer le processus selectionne",
+        "copy_pid": "Copier le PID",
         "export": "Exporter le rapport JSON",
+        "actions": "Actions",
         "health": "Sante",
         "recent_threads": "Fils recents",
     },
@@ -275,7 +340,10 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "error_prefix": "Fehler",
         "checkpoint": "Logs-WAL kuerzen",
         "install_guard": "TRACE/DEBUG-Schutz installieren",
+        "end_process": "Ausgewaehlten Prozess beenden",
+        "copy_pid": "PID kopieren",
         "export": "JSON-Bericht exportieren",
+        "actions": "Aktionen",
         "health": "Status",
         "recent_threads": "Aktuelle Threads",
     },
@@ -946,6 +1014,37 @@ def install_trace_guard(home: Path) -> dict[str, Any]:
     return {"ok": True, "message": "TRACE/DEBUG guard installed"}
 
 
+def terminate_process(pid: int) -> dict[str, Any]:
+    if pid == os.getpid():
+        return {"ok": False, "error": "cannot_terminate_self"}
+    if os.name != "nt":
+        return {"ok": False, "error": "Process termination is implemented only on Windows."}
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    open_process = kernel32.OpenProcess
+    open_process.argtypes = [ctypes.c_uint32, ctypes.c_int, ctypes.c_uint32]
+    open_process.restype = ctypes.c_void_p
+    terminate = kernel32.TerminateProcess
+    terminate.argtypes = [ctypes.c_void_p, ctypes.c_uint32]
+    terminate.restype = ctypes.c_int
+    close_handle = kernel32.CloseHandle
+    close_handle.argtypes = [ctypes.c_void_p]
+    close_handle.restype = ctypes.c_int
+
+    process_terminate = 0x0001
+    handle = open_process(process_terminate, 0, int(pid))
+    if not handle:
+        error = ctypes.get_last_error()
+        return {"ok": False, "error": ctypes.FormatError(error).strip() or f"Windows error {error}"}
+    try:
+        if not terminate(handle, 1):
+            error = ctypes.get_last_error()
+            return {"ok": False, "error": ctypes.FormatError(error).strip() or f"Windows error {error}"}
+    finally:
+        close_handle(handle)
+    return {"ok": True}
+
+
 def assess_risk(snapshot: dict[str, Any]) -> dict[str, Any]:
     processes = snapshot["processes"]
     log_health = snapshot["log_health"]
@@ -1160,6 +1259,10 @@ class CodexMonitorApp:
         self.checkpoint_button.pack(side=tk.LEFT)
         self.guard_button = ttk.Button(actions, text=self._t("install_guard"), command=self.install_guard)
         self.guard_button.pack(side=tk.LEFT, padx=(8, 0))
+        self.end_process_button = ttk.Button(actions, text=self._t("end_process"), command=self.end_selected_process)
+        self.end_process_button.pack(side=tk.LEFT, padx=(8, 0))
+        self.copy_pid_button = ttk.Button(actions, text=self._t("copy_pid"), command=self.copy_selected_pid)
+        self.copy_pid_button.pack(side=tk.LEFT, padx=(8, 0))
         self.export_button = ttk.Button(actions, text=self._t("export"), command=self.export_report)
         self.export_button.pack(side=tk.LEFT, padx=(8, 0))
         ttk.Label(actions, textvariable=self.status_text).pack(side=tk.RIGHT)
@@ -1180,8 +1283,13 @@ class CodexMonitorApp:
                 (70, 90, 160, 110, 80, 90, 150, 520),
             ),
         )
+        self.proc_tree.bind("<<TreeviewSelect>>", self._on_process_select)
         self.notebook = ttk.Notebook(lower)
         self.notebook.pack(fill=tk.BOTH, expand=True)
+
+        self.actions_text = tk.Text(self.notebook, height=8, wrap=tk.WORD)
+        self.actions_text.configure(font=("Segoe UI", 10))
+        self.notebook.add(self.actions_text, text=self._t("actions"))
 
         self.health_text = tk.Text(self.notebook, height=8, wrap=tk.WORD)
         self.health_text.configure(font=("Consolas", 10))
@@ -1208,9 +1316,12 @@ class CodexMonitorApp:
         self.language_label.configure(text=self._t("language"))
         self.checkpoint_button.configure(text=self._t("checkpoint"))
         self.guard_button.configure(text=self._t("install_guard"))
+        self.end_process_button.configure(text=self._t("end_process"))
+        self.copy_pid_button.configure(text=self._t("copy_pid"))
         self.export_button.configure(text=self._t("export"))
-        self.notebook.tab(0, text=self._t("health"))
-        self.notebook.tab(1, text=self._t("recent_threads"))
+        self.notebook.tab(0, text=self._t("actions"))
+        self.notebook.tab(1, text=self._t("health"))
+        self.notebook.tab(2, text=self._t("recent_threads"))
         for column in self.proc_tree["columns"]:
             self.proc_tree.heading(column, text=self._t(column))
         for column in self.thread_tree["columns"]:
@@ -1220,6 +1331,10 @@ class CodexMonitorApp:
         else:
             self.risk_label.configure(text=f"{self._t('risk')}: -")
             self.status_text.set(self._t("starting"))
+
+    def _on_process_select(self, _event: object | None = None) -> None:
+        if self.last_snapshot:
+            self._render_actions(self.last_snapshot)
 
     def _make_tree(self, parent: ttk.Frame, columns: Columns) -> ttk.Treeview:
         tree = ttk.Treeview(parent, columns=columns.headings, show="headings")
@@ -1326,6 +1441,7 @@ class CodexMonitorApp:
                 ),
             )
 
+        self._render_actions(snapshot)
         self._render_health(snapshot)
         for item in self.thread_tree.get_children():
             self.thread_tree.delete(item)
@@ -1343,6 +1459,62 @@ class CodexMonitorApp:
                     thread["id"],
                 ),
             )
+
+    def _selected_process(self) -> dict[str, Any] | None:
+        selected = self.proc_tree.selection()
+        if not selected or not self.last_snapshot:
+            return None
+        values = self.proc_tree.item(selected[0], "values")
+        if not values:
+            return None
+        try:
+            pid = int(values[0])
+        except (TypeError, ValueError):
+            return None
+        for process in self.last_snapshot.get("processes", []):
+            if process.get("id") == pid:
+                return process
+        return None
+
+    def _render_actions(self, snapshot: dict[str, Any]) -> None:
+        processes = snapshot.get("processes") or []
+        top_process = processes[0] if processes else None
+        selected = self._selected_process()
+        lines = [self._t("actions_header"), ""]
+        if top_process:
+            lines.append(
+                self._t(
+                    "actions_top_process",
+                    pid=top_process["id"],
+                    name=top_process["name"],
+                    memory=human_bytes(top_process["working_set"]),
+                )
+            )
+        if selected:
+            lines.append(
+                self._t(
+                    "actions_selected_process",
+                    pid=selected["id"],
+                    name=selected["name"],
+                    memory=human_bytes(selected["working_set"]),
+                )
+            )
+        else:
+            lines.append(self._t("actions_no_selection"))
+        lines.extend(
+            [
+                "",
+                self._t("actions_step_select"),
+                self._t("actions_step_end"),
+                self._t("actions_step_logs"),
+                self._t("actions_step_threads"),
+                self._t("actions_step_restart"),
+            ]
+        )
+        self.actions_text.configure(state=tk.NORMAL)
+        self.actions_text.delete("1.0", tk.END)
+        self.actions_text.insert(tk.END, "\n".join(lines))
+        self.actions_text.configure(state=tk.DISABLED)
 
     def _render_health(self, snapshot: dict[str, Any]) -> None:
         log_health = snapshot["log_health"]
@@ -1379,6 +1551,50 @@ class CodexMonitorApp:
         self.health_text.delete("1.0", tk.END)
         self.health_text.insert(tk.END, "\n".join(lines))
         self.health_text.configure(state=tk.DISABLED)
+
+    def copy_selected_pid(self) -> None:
+        process = self._selected_process()
+        if not process:
+            messagebox.showwarning(APP_NAME, self._t("no_process_selected"))
+            return
+        pid = str(process["id"])
+        self.root.clipboard_clear()
+        self.root.clipboard_append(pid)
+        self.status_text.set(self._t("pid_copied", pid=pid))
+
+    def end_selected_process(self) -> None:
+        process = self._selected_process()
+        if not process:
+            messagebox.showwarning(APP_NAME, self._t("no_process_selected"))
+            return
+        pid = int(process["id"])
+        if pid == os.getpid():
+            messagebox.showwarning(APP_NAME, self._t("cannot_terminate_self"))
+            return
+        confirmed = messagebox.askyesno(
+            self._t("confirm_end_title"),
+            self._t(
+                "confirm_end_process",
+                pid=pid,
+                name=process["name"],
+                memory=human_bytes(process["working_set"]),
+                path=process["path"] or "-",
+            ),
+            icon=messagebox.WARNING,
+        )
+        if not confirmed:
+            return
+        result = terminate_process(pid)
+        if result.get("ok"):
+            self.status_text.set(self._t("terminate_done", pid=pid))
+            self.refresh()
+            return
+        error = result.get("error")
+        if error == "cannot_terminate_self":
+            message = self._t("cannot_terminate_self")
+        else:
+            message = self._t("terminate_failed", pid=pid, error=error)
+        messagebox.showerror(APP_NAME, message)
 
     def checkpoint_wal(self) -> None:
         try:

@@ -12,6 +12,9 @@ Es funktioniert wie ein spezialisierter Task-Manager fuer Codex: Codex-Prozesse,
 - Aktuelles Modell, Reasoning-Stufe, MCP-Server und aktive Plugins.
 - Aktuelle lokale Codex-Threads.
 - Risikowert mit konkreten Gruenden.
+- Aktionsbereich mit praktischen Schritten.
+- Ausgewaehlten Prozess nach expliziter Bestaetigung beenden.
+- Ausgewaehlte PID kopieren.
 - Checkpoint/truncate fuer das Logs-WAL.
 - Installation eines TRACE/DEBUG-Log-Schutzes.
 - JSON-Bericht exportieren.
@@ -48,4 +51,4 @@ Ausgabe:
 
 ## Sicherheit
 
-Standardmaessig ist das Tool nur lesend. Die zwei manuellen Buttons aendern nur die lokale SQLite-Logdatenbank von Codex. Es beendet keine Prozesse, installiert Codex nicht, installiert Codex nicht neu und aendert keine Codex-Projekte.
+Standardmaessig ist das Tool nur lesend. Die Log-Buttons aendern nur die lokale SQLite-Logdatenbank von Codex. Prozessbeenden betrifft nur den ausgewaehlten und bestaetigten Prozess. Es installiert Codex nicht, installiert Codex nicht neu und aendert keine Codex-Projekte.
