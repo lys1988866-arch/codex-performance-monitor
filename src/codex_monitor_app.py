@@ -30,7 +30,7 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.4.0"
+APP_VERSION = "0.4.1"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
 )
@@ -158,6 +158,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "risk_low_memory": "System free physical memory is below 4 GB.",
         "risk_many_threads": "Many recent threads are in local state.",
         "risk_none": "No immediate Codex performance risk detected.",
+        "risk_more_points": "more",
     },
     "zh-CN": {
         "refresh": "刷新",
@@ -271,6 +272,7 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
         "risk_low_memory": "系统可用物理内存低于 4 GB。",
         "risk_many_threads": "本地最近会话数量偏多。",
         "risk_none": "未检测到明显的 Codex 性能风险。",
+        "risk_more_points": "其他",
     },
     "ja": {
         "refresh": "更新",
@@ -452,6 +454,7 @@ TRANSLATIONS["ja"].update(
         "risk_low_memory": "空き物理メモリが 4 GB 未満です。",
         "risk_many_threads": "ローカル状態に最近のスレッドが多すぎます。",
         "risk_none": "直近の Codex パフォーマンス リスクは検出されませんでした。",
+        "risk_more_points": "その他",
     }
 )
 
@@ -518,6 +521,7 @@ TRANSLATIONS["ko"].update(
         "risk_low_memory": "시스템 여유 물리 메모리가 4 GB 미만입니다.",
         "risk_many_threads": "로컬 상태에 최근 스레드가 많습니다.",
         "risk_none": "즉각적인 Codex 성능 위험이 감지되지 않았습니다.",
+        "risk_more_points": "기타",
     }
 )
 
@@ -584,6 +588,7 @@ TRANSLATIONS["es"].update(
         "risk_low_memory": "La memoria fisica libre esta por debajo de 4 GB.",
         "risk_many_threads": "Hay muchos hilos recientes en el estado local.",
         "risk_none": "No se detecto un riesgo inmediato de rendimiento de Codex.",
+        "risk_more_points": "mas",
     }
 )
 
@@ -650,6 +655,7 @@ TRANSLATIONS["fr"].update(
         "risk_low_memory": "La memoire physique libre est inferieure a 4 Go.",
         "risk_many_threads": "L'etat local contient beaucoup de fils recents.",
         "risk_none": "Aucun risque immediat de performance Codex detecte.",
+        "risk_more_points": "autres",
     }
 )
 
@@ -716,6 +722,7 @@ TRANSLATIONS["de"].update(
         "risk_low_memory": "Freier physischer Speicher liegt unter 4 GB.",
         "risk_many_threads": "Viele aktuelle Threads sind im lokalen Zustand.",
         "risk_none": "Kein unmittelbares Codex-Performance-Risiko erkannt.",
+        "risk_more_points": "weitere",
     }
 )
 
@@ -1165,43 +1172,38 @@ def assess_risk(snapshot: dict[str, Any]) -> dict[str, Any]:
     db_size = int(log_health.get("db_size") or 0)
     score = 0
     reasons: list[str] = []
+    factors: list[dict[str, Any]] = []
+
+    def add_factor(points: int, reason: str) -> None:
+        nonlocal score
+        score += points
+        reasons.append(reason)
+        factors.append({"points": points, "reason": reason})
 
     if max_proc > 1.8 * 1024**3:
-        score += 40
-        reasons.append("A single monitored process is above 1.8 GB.")
+        add_factor(40, "A single monitored process is above 1.8 GB.")
     if codex_mem > 3.5 * 1024**3:
-        score += 35
-        reasons.append("Total Codex process memory is above 3.5 GB.")
+        add_factor(35, "Total Codex process memory is above 3.5 GB.")
     elif codex_mem > 2.0 * 1024**3:
-        score += 20
-        reasons.append("Total Codex process memory is above 2 GB.")
+        add_factor(20, "Total Codex process memory is above 2 GB.")
     if len(codex_processes) >= 6:
-        score += 12
-        reasons.append("Many Codex processes are loaded.")
+        add_factor(12, "Many Codex processes are loaded.")
     if len(runtime_processes) >= 12:
-        score += 10
-        reasons.append("Many Node/node_repl runtime processes are loaded.")
+        add_factor(10, "Many Node/node_repl runtime processes are loaded.")
     if len(browser_processes) >= 10:
-        score += 8
-        reasons.append("Many browser/WebView processes are loaded.")
+        add_factor(8, "Many browser/WebView processes are loaded.")
     if effort in {"xhigh", "max"}:
-        score += 15
-        reasons.append(f"Default reasoning effort is {effort}.")
+        add_factor(15, f"Default reasoning effort is {effort}.")
     if db_size > 250 * 1024**2:
-        score += 25
-        reasons.append("logs_2.sqlite is very large.")
+        add_factor(25, "logs_2.sqlite is very large.")
     if wal_size > 100 * 1024**2:
-        score += 25
-        reasons.append("logs_2.sqlite WAL is very large.")
+        add_factor(25, "logs_2.sqlite WAL is very large.")
     if "codex_block_trace_debug_logs_insert" not in triggers:
-        score += 15
-        reasons.append("TRACE/DEBUG log guard is not installed.")
+        add_factor(15, "TRACE/DEBUG log guard is not installed.")
     if memory.get("free_physical", 0) < 4 * 1024**3:
-        score += 30
-        reasons.append("System free physical memory is below 4 GB.")
+        add_factor(30, "System free physical memory is below 4 GB.")
     if recent_threads >= 20:
-        score += 8
-        reasons.append("Many recent threads are in local state.")
+        add_factor(8, "Many recent threads are in local state.")
 
     level = "OK"
     if score >= 70:
@@ -1210,8 +1212,10 @@ def assess_risk(snapshot: dict[str, Any]) -> dict[str, Any]:
         level = "WARN"
     return {
         "score": min(score, 100),
+        "raw_score": score,
         "level": level,
         "reasons": reasons or ["No immediate Codex performance risk detected."],
+        "factors": factors,
         "totals": {
             "codex_processes": len(codex_processes),
             "runtime_processes": len(runtime_processes),
@@ -1523,7 +1527,18 @@ class CodexMonitorApp:
                 rows=log_health.get("count"),
             )
         )
-        localized_reasons = [translate_risk_reason(self._language_code(), reason) for reason in risk["reasons"][:4]]
+        factors = risk.get("factors") or []
+        if factors:
+            localized_reasons = [
+                f"+{factor['points']} {translate_risk_reason(self._language_code(), factor['reason'])}"
+                for factor in factors[:6]
+            ]
+            if len(factors) > 6:
+                localized_reasons.append(
+                    f"+{sum(factor['points'] for factor in factors[6:])} {self._t('risk_more_points')}"
+                )
+        else:
+            localized_reasons = [translate_risk_reason(self._language_code(), reason) for reason in risk["reasons"][:4]]
         self.reason_label.configure(text="; ".join(localized_reasons))
         self.status_text.set(self._t("updated", time=snapshot["collected_at"]))
 
