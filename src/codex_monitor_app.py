@@ -30,7 +30,7 @@ except Exception:  # pragma: no cover
 
 
 APP_NAME = "Codex Performance Monitor"
-APP_VERSION = "0.4.1"
+APP_VERSION = "0.4.2"
 WATCHED_PROCESS_PATTERN = (
     "Codex|codex|codex-command-runner|node|node_repl|chrome|msedge|msedgewebview2|python|dotnet"
 )
@@ -1171,29 +1171,39 @@ def assess_risk(snapshot: dict[str, Any]) -> dict[str, Any]:
     wal_size = int(log_health.get("wal_size") or 0)
     db_size = int(log_health.get("db_size") or 0)
     score = 0
+    raw_score = 0
+    load_score = 0
+    pressure_score = 0
     reasons: list[str] = []
     factors: list[dict[str, Any]] = []
+    used_percent = float(memory.get("used_percent") or 0.0)
+    free_physical = int(memory.get("free_physical") or 0)
+    memory_is_healthy = free_physical >= 16 * 1024**3 and used_percent < 75.0
 
-    def add_factor(points: int, reason: str) -> None:
-        nonlocal score
-        score += points
+    def add_factor(points: int, reason: str, kind: str = "pressure") -> None:
+        nonlocal raw_score, load_score, pressure_score
+        raw_score += points
+        if kind == "load":
+            load_score += points
+        else:
+            pressure_score += points
         reasons.append(reason)
-        factors.append({"points": points, "reason": reason})
+        factors.append({"points": points, "reason": reason, "kind": kind})
 
     if max_proc > 1.8 * 1024**3:
-        add_factor(40, "A single monitored process is above 1.8 GB.")
+        add_factor(35, "A single monitored process is above 1.8 GB.")
     if codex_mem > 3.5 * 1024**3:
-        add_factor(35, "Total Codex process memory is above 3.5 GB.")
+        add_factor(30, "Total Codex process memory is above 3.5 GB.")
     elif codex_mem > 2.0 * 1024**3:
-        add_factor(20, "Total Codex process memory is above 2 GB.")
+        add_factor(18, "Total Codex process memory is above 2 GB.")
     if len(codex_processes) >= 6:
-        add_factor(12, "Many Codex processes are loaded.")
+        add_factor(12, "Many Codex processes are loaded.", "load")
     if len(runtime_processes) >= 12:
-        add_factor(10, "Many Node/node_repl runtime processes are loaded.")
+        add_factor(10, "Many Node/node_repl runtime processes are loaded.", "load")
     if len(browser_processes) >= 10:
-        add_factor(8, "Many browser/WebView processes are loaded.")
+        add_factor(8, "Many browser/WebView processes are loaded.", "load")
     if effort in {"xhigh", "max"}:
-        add_factor(15, f"Default reasoning effort is {effort}.")
+        add_factor(15, f"Default reasoning effort is {effort}.", "load")
     if db_size > 250 * 1024**2:
         add_factor(25, "logs_2.sqlite is very large.")
     if wal_size > 100 * 1024**2:
@@ -1203,16 +1213,23 @@ def assess_risk(snapshot: dict[str, Any]) -> dict[str, Any]:
     if memory.get("free_physical", 0) < 4 * 1024**3:
         add_factor(30, "System free physical memory is below 4 GB.")
     if recent_threads >= 20:
-        add_factor(8, "Many recent threads are in local state.")
+        add_factor(8, "Many recent threads are in local state.", "load")
+
+    # High-reasoning Codex workloads can look large while the host is still healthy.
+    # Keep the load visible, but do not let load-only factors permanently pin the app at 100.
+    score = pressure_score + (min(load_score, 15) if memory_is_healthy else load_score)
 
     level = "OK"
-    if score >= 70:
+    if score >= 75:
         level = "CRITICAL"
     elif score >= 35:
         level = "WARN"
     return {
         "score": min(score, 100),
-        "raw_score": score,
+        "raw_score": raw_score,
+        "pressure_score": pressure_score,
+        "load_score": load_score,
+        "memory_is_healthy": memory_is_healthy,
         "level": level,
         "reasons": reasons or ["No immediate Codex performance risk detected."],
         "factors": factors,
@@ -1254,7 +1271,12 @@ def summarize_snapshot(snapshot: dict[str, Any]) -> dict[str, Any]:
         "risk": {
             "level": risk["level"],
             "score": risk["score"],
+            "raw_score": risk.get("raw_score"),
+            "pressure_score": risk.get("pressure_score"),
+            "load_score": risk.get("load_score"),
+            "memory_is_healthy": risk.get("memory_is_healthy"),
             "reasons": risk["reasons"],
+            "factors": risk.get("factors", []),
         },
         "processes": {
             "total": len(snapshot["processes"]),
